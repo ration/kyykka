@@ -19,7 +19,7 @@ friction = 0.1
 
 [node name="Karttu" type="RigidBody3D" unique_id=1726288349]
 script = ExtResource("1_karttu")
-mass = 1.0
+mass = 2.0
 physics_material_override = SubResource("PhysicsMaterial_karttu")
 continuous_cd = true
 

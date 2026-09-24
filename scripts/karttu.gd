@@ -32,7 +32,7 @@ extends SettlingBody
 ## damping is needed to make a landed karttu actually stop (see
 ## SettlingBody), but that same damping applied throughout the flight
 ## itself acts like heavy air resistance, diagnosed directly with
-## tools/simulate_throws.gd: at landed_linear_damp (3.0) the whole flight,
+## tools/simulate_throws.gd: at a landed-style damping of 3.0 the whole flight,
 ## horizontal speed decayed from ~17 m/s to ~3.7 m/s within 0.5s,
 ## covering only ~5m instead of the ~10m needed to reach the pesä.
 ## flight_linear_damp/flight_angular_damp (near zero) apply while
@@ -44,7 +44,7 @@ const MIN_SWEEP_DISTANCE := 0.03  ## metres per step; below this the regular sol
 
 @export var flight_linear_damp: float = 0.0
 @export var flight_angular_damp: float = 0.0
-@export var landed_linear_damp: float = 3.0
+@export var landed_linear_damp: float = 2.0
 @export var landed_angular_damp: float = 3.0
 
 var _locking_spin: bool = false
