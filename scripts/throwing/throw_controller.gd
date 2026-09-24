@@ -30,6 +30,10 @@ signal throw_settled
 
 @export var camera_height: float = 1.6
 @export var camera_back_offset: float = 1.2
+@export var default_fov_degrees: float = 70.0  ## neutral zoom, reset each turn
+@export var min_fov_degrees: float = 15.0  ## most zoomed in (scroll up)
+@export var max_fov_degrees: float = 70.0  ## least zoomed in / default (scroll down)
+@export var zoom_step_degrees: float = 4.0  ## FOV change per scroll notch
 @export var settle_timeout_seconds: float = 5.0
 @export var karttu_rest_height: float = 0.03  ## roughly its radius, so it rests on the ground rather than clipping into it
 @export var miss_indicator_seconds: float = 0.8
@@ -39,6 +43,7 @@ var watch_root: Node3D  ## subtree whose RigidBody3Ds must settle (the current t
 
 var _yaw_degrees: float = 0.0
 var _elevation_degrees: float = 15.0  ## current up/down aim; reset to launch_elevation_degrees in configure()
+var _fov_degrees: float = 70.0  ## current zoom level; reset to default_fov_degrees in configure()
 var _forward_direction: Vector3 = Vector3(0, 0, 1)  ## yaw=0 aim direction; set via configure()
 var _karttu: RigidBody3D
 var _busy: bool = false
@@ -91,6 +96,8 @@ func configure(p_position: Vector3, p_forward: Vector3, p_watch_root: Node3D) ->
 	watch_root = p_watch_root
 	_yaw_degrees = 0.0
 	_elevation_degrees = launch_elevation_degrees
+	_fov_degrees = default_fov_degrees
+	camera.fov = _fov_degrees
 	_reset_karttu()
 	_update_camera()
 
@@ -137,6 +144,10 @@ func _unhandled_input(event: InputEvent) -> void:
 				var gauge := _gauge_degrees
 				_gauge_bar.hide()
 				_throw(gauge)
+	elif event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+		var step := -zoom_step_degrees if event.button_index == MOUSE_BUTTON_WHEEL_UP else zoom_step_degrees
+		_fov_degrees = clampf(_fov_degrees + step, min_fov_degrees, max_fov_degrees)
+		camera.fov = _fov_degrees
 
 
 func _process(delta: float) -> void:
