@@ -130,12 +130,12 @@ func _throw(gauge_degrees: float) -> void:
 
 	_karttu.freeze = false
 	_karttu.linear_velocity = launch_dir * throw_speed
-	# Spin about the flight direction itself (a barrel roll along the
-	# path), not dir.cross(UP): the karttu's length already lies along
-	# the aim direction's perpendicular at rest, so spinning about the
-	# travel axis is what actually alternates it between lying flat and
-	# standing on end as it flies — see plan/commit notes.
-	_karttu.angular_velocity = launch_dir * rate
+	# Spin about the horizontal aim direction (not launch_dir, which
+	# tilts up by launch_elevation_degrees) while airborne — a karttu
+	# released by hand spins on a level axis; once it hits the ground,
+	# contact impulses are free to send the spin any direction, which
+	# RigidBody3D already does on its own without help from this code.
+	_karttu.angular_velocity = dir * rate
 
 	await _await_settle()
 	_reset_karttu()
