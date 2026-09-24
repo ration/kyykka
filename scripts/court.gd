@@ -15,17 +15,44 @@ extends Node3D
 @export var ground_thickness: float = 0.2
 
 
+## Phase 3 demo wiring: one Attack, thrown at from the near pesä's front
+## line toward the far pesä. Phase 4 replaces this with the real
+## match/turn loop, so it's kept minimal rather than building
+## infrastructure that would just be discarded then.
 func _ready() -> void:
 	var hw := court_width / 2.0
 	var hl := court_length / 2.0
 	var near_pesa_z := -hl + pesa_size
 	var far_pesa_z := hl - pesa_size
 
+	var far_pesa_view := _build_pesa_view(far_pesa_z, 1.0)
+
 	add_child(_build_ground())
 	add_child(_build_ground_collision(hw, hl))
 	add_child(_build_lines(hw, hl, near_pesa_z, far_pesa_z))
-	add_child(_build_pesa_view(near_pesa_z))
-	add_child(_build_pesa_view(far_pesa_z))
+	add_child(_build_pesa_view(near_pesa_z, -1.0))
+	add_child(far_pesa_view)
+
+	var attack := Attack.new(Team.new("Player"), Pesa.new(far_pesa_view.piece_count), KyykkaMatch.DEFAULT_KARTTU_BUDGET)
+	var scorer := PesaScorer.new(far_pesa_view, attack)
+
+	var thrower := ThrowController.new()
+	thrower.name = "ThrowController"
+	thrower.karttu_scene = preload("res://scenes/karttu.tscn")
+	thrower.watch_root = far_pesa_view
+	thrower.camera = $Camera3D
+	thrower.position = Vector3(0, 0, near_pesa_z)
+	thrower.throw_settled.connect(func() -> void:
+		attack.throw(scorer.score_current_state())
+		print("Attack: karttu_used=%d/%d in_square=%d on_line=%d removed=%d finished=%s" % [
+			attack.karttu_used, attack.karttu_budget,
+			attack.pesa.in_square, attack.pesa.on_line, attack.pesa.removed,
+			attack.is_finished(),
+		])
+		if attack.is_finished():
+			print("Attack finished. Score: ", attack.score())
+	)
+	add_child(thrower)
 
 
 func _build_ground() -> MeshInstance3D:
@@ -55,9 +82,13 @@ func _build_ground_collision(hw: float, hl: float) -> StaticBody3D:
 	var collision := CollisionShape3D.new()
 	collision.shape = shape
 
+	var mat := PhysicsMaterial.new()
+	mat.friction = 0.1  # low, so a thrown karttu slides through the target rather than stopping dead
+
 	var body := StaticBody3D.new()
 	body.name = "GroundBody"
 	body.position.y = -ground_thickness / 2.0
+	body.physics_material_override = mat
 	body.add_child(collision)
 	return body
 
@@ -87,11 +118,14 @@ func _build_lines(hw: float, hl: float, near_pesa_z: float, far_pesa_z: float) -
 	return lines
 
 
-func _build_pesa_view(z: float) -> PesaView:
+func _build_pesa_view(z: float, depth_direction: float) -> PesaView:
 	var view := PesaView.new()
 	view.name = "PesaView"
 	view.kyykka_scene = preload("res://scenes/kyykka.tscn")
 	view.usable_width = court_width - 2.0 * pesa_side_margin
+	view.pesa_half_width = court_width / 2.0
+	view.pesa_depth = pesa_size
+	view.depth_direction = depth_direction
 	view.position = Vector3(0, 0, z)
 	return view
 

@@ -30,11 +30,18 @@ conventions.
   - Also added ground collision (`court.gd`'s `GroundBody`), needed for
     any of the above to physically rest on the court
 
-- [ ] **Phase 3 — Throwing mechanics**
-  - Aiming input (direction + power)
+- [x] **Phase 3 — Throwing mechanics**
+  - Aiming input (direction + power) — `ThrowController`: mouse-look yaw
+    cone + hold-to-charge power
   - Physics-based throw (RigidBody3D karttu vs. kyykkä)
-  - Detect "knocked fully out of pesä" vs. "still inside/on a line"
-  - Feed throw results into the rules engine
+  - Detect "knocked fully out of pesä" vs. "still inside/on a line" —
+    `PieceClassifier` (pure geometry) + `PesaScorer` (bridges to rules)
+  - Feed throw results into the rules engine — wired to a live `Attack`
+    in `court.gd` (Phase 4 will replace this demo wiring with the real
+    match/turn loop)
+  - Verified end-to-end headlessly (settle → classify → score works);
+    throw ballistics are a first-pass estimate, not yet tuned by feel —
+    see CLAUDE.md's Throwing section
 
 - [ ] **Phase 4 — Game loop integration**
   - Turn switching, half switching (reset/repopulate pesä), match end →
