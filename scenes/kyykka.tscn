@@ -20,8 +20,8 @@ friction = 0.9
 script = ExtResource("1_kyykka")
 mass = 0.23
 physics_material_override = SubResource("PhysicsMaterial_kyykka")
-linear_damp = 1.0
-angular_damp = 3.0
+linear_damp = 0.5
+angular_damp = 1.0
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=966605946]
 material_override = SubResource("StandardMaterial3D_jcnqi")
