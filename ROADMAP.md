@@ -9,14 +9,14 @@ conventions.
   Godot project setup, build tooling (`Makefile`, `tools/*.sh`), base 3D
   court (ground + boundary/pesä lines).
 
-- [ ] **Phase 1 — Rules engine (no visuals)**
-  - Data model: `Team`, `Player`, `Match`, `Half`, `Turn`
+- [x] **Phase 1 — Rules engine (no visuals)**
+  - Data model: `Team`, `Pesa`, `ThrowResult`, `Attack`, `Half`, `KyykkaMatch`
+    (`scripts/rules/`)
   - Pesä square state: which kyykkä are standing/gone per square
   - Scoring calculator: plus points (removed kyykkä, unused karttu), minus
     points (kyykkä left inside/on lines, per README)
   - Half/match completion and winner determination
-  - Unit tests (GUT) for the above — this is pure logic and the
-    highest-value thing to get right and test first
+  - Unit tests (GUT, `tests/rules/`) for the above
 
 - [ ] **Phase 2 — Equipment & scene setup**
   - Kyykkä piece scene (cylinder, 10 cm tall × 6–8 cm diameter, per rules)

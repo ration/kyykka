@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-This is an early-stage Godot 4 project, now 3D. The main scene renders the base court (ground plane + boundary/pesä lines) — no kyykkä pieces, throwing, or scoring yet.
+This is an early-stage Godot 4 project, now 3D. The main scene renders the base court (ground plane + boundary/pesä lines), and a standalone rules engine (`scripts/rules/`, no visuals) models teams, throws, and scoring — no kyykkä pieces, physical throwing, or UI wiring yet.
 
 The full game rules — field/square layout, kyykkä and karttu equipment, turn structure, and the plus/minus point scoring system — are documented in `README.md`. Read it before implementing any game logic: correctly modeling those rules (two opposing squares, alternating throws, pieces knocked out vs. left standing, two-half matches with sides swapped) is the core of this project.
 
@@ -19,6 +19,19 @@ The full game rules — field/square layout, kyykkä and karttu equipment, turn 
 
 `scripts/court.gd` (attached to the `Court` root of `scenes/court.tscn`) procedurally builds the ground plane and court lines at runtime rather than storing them as static scene geometry, so the dimensions live in one place (the script's `@export` fields) instead of being baked into hand-placed meshes. Current layout, per README.md: a 5×20 m court with a 5×5 m pesä square at each end (so only the two pesä "front lines" need drawing in addition to the outer boundary — the pesä's other three edges coincide with the court boundary). Throwing lines are not drawn yet since their exact placement wasn't pinned down from the rule sources. When adding kyykkä pieces or throwing lines, extend this script (or add sibling scenes) rather than hand-authoring geometry in the `.tscn` file, to keep dimensions consistent and adjustable.
 
+## Rules engine
+
+`scripts/rules/` implements the game rules (README.md) as plain `RefCounted` GDScript classes with no `Node`/scene dependency, so they're directly testable and reusable once physics (Phase 3) and UI (Phase 5) need to drive them:
+
+- `Team` — minimal, just a name for now.
+- `Pesa` — one team's playing square: `in_square`/`on_line`/`removed` kyykkä counts and the `apply()` transition between them. Positions aren't modeled yet (no physics), so a piece's zone is just asserted directly by whatever calls `apply()` — currently the tests, eventually Phase 3's collision detection.
+- `ThrowResult` — one throw's effect on a `Pesa`; this is the seam Phase 3 will produce instances of.
+- `Attack` — one team's attempt to clear the opponent's `Pesa` within a karttu budget; owns `score()`, which is only meaningful once `is_finished()` (asserts otherwise).
+- `Half` — both teams' simultaneous `Attack`s against each other's square.
+- `KyykkaMatch` — `HALVES_PER_MATCH` halves, `total_score()`, `winner()` (`null` on a tie).
+
+`Attack.PENALTY_IN_SQUARE`/`PENALTY_ON_LINE` and `KyykkaMatch.DEFAULT_KYYKKA_PAIRS`/`DEFAULT_KARTTU_BUDGET` are the values that were least certain from the rule sources (see README.md) — they're named constants specifically so they're easy to correct against the official Suomen Kyykkäliitto rulebook without hunting through logic.
+
 ## Commands
 
 Run via `make` (see `make help`); each target just wraps a `tools/*.sh` script or a direct Godot CLI call:
@@ -28,14 +41,16 @@ Run via `make` (see `make help`); each target just wraps a `tools/*.sh` script o
 - `make check` — headless smoke test: loads the project and main scene, then quits. Useful to catch script/scene errors without a display: `godot --headless --path . --quit`
 - `make export PRESET="<preset name>" OUT=builds/kyykka` — export a build (`tools/export.sh`). This requires export presets to exist first — none are checked in yet. Create them once via the editor (Project > Export...), which writes `export_presets.cfg`, and install matching export templates first (Editor > Manage Export Templates). `export_presets.cfg` is safe to commit once it exists.
 - `make clean` — remove local build/import artifacts (`.godot/`, `builds/`)
-- There is no test suite yet. If one is added, prefer [GUT](https://github.com/bitwes/Gut) (the de facto GDScript unit test framework), give it its own `make test` target, and document it here.
+- `make test` — run the [GUT](https://gut.readthedocs.io/) test suite (`tests/`) headlessly. GUT is vendored directly at `addons/gut` (copied from the `addons/gut` subfolder of the [Gut repo](https://github.com/bitwes/Gut) tag `v9.7.1`, not a submodule — that repo's top level is itself a demo Godot project, so only its inner `addons/gut` folder is the actual redistributable addon) and enabled as an editor plugin in `project.godot`. After first cloning, or after touching anything under `addons/`, run `godot --headless --path . --import` once so Godot registers GUT's `class_name`s before `make test` will work.
 - There is no dedicated linter configured. [gdtoolkit](https://github.com/Scony/godot-gdscript-toolkit) (`gdformat`, `gdlint`) is the common external option if one is wanted later — it is not installed as part of this repo.
 
 ## Project structure
 
-- `project.godot` — engine config; `run/main_scene` points at `scenes/court.tscn`.
+- `project.godot` — engine config; `run/main_scene` points at `scenes/court.tscn`; `[editor_plugins]` enables GUT.
 - `scenes/` — `.tscn` scene files. `court.tscn` holds the camera, sun light, and world environment; the court geometry itself is generated at runtime by `court.gd` (see Court above).
-- `scripts/` — GDScript files. `court.gd` is attached to the `court.tscn` root.
+- `scripts/` — GDScript files. `court.gd` is attached to the `court.tscn` root. `scripts/rules/` is the rules engine (see Rules engine above).
+- `tests/rules/` — GUT tests for `scripts/rules/`, one `test_*.gd` file per rules class.
+- `addons/gut/` — vendored GUT addon (see Commands above); third-party code, not maintained here.
 - `assets/` — art/audio/etc. (currently empty).
 - `Makefile` — common command entry points (see Commands above).
 - `tools/` — repo-local shell scripts the Makefile wraps (`run.sh`, `export.sh`), not Godot engine code.

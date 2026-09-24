@@ -1,10 +1,11 @@
-.PHONY: run edit check export clean help
+.PHONY: run edit check test export clean help
 
 help:
 	@echo "Targets:"
 	@echo "  make run                                   - run the game"
 	@echo "  make edit                                   - open the project in the Godot editor"
 	@echo "  make check                                   - headless smoke test (loads project, then quits)"
+	@echo "  make test                                   - run the GUT test suite"
 	@echo "  make export PRESET=\"<preset name>\" OUT=builds/kyykka - export a build"
 	@echo "  make clean                                   - remove local build/import artifacts"
 
@@ -16,6 +17,9 @@ edit:
 
 check:
 	godot --headless --path . --quit
+
+test:
+	godot --headless -d -s --path . addons/gut/gut_cmdln.gd -gdir=res://tests -ginclude_subdirs -gexit
 
 export:
 	@if [ -z "$(PRESET)" ] || [ -z "$(OUT)" ]; then \
