@@ -171,13 +171,16 @@ func _throw(gauge_degrees: float) -> void:
 
 	_karttu.freeze = false
 	_karttu.linear_velocity = launch_dir * throw_speed
-	# Spin about the horizontal aim direction (not launch_dir, which
-	# tilts up by launch_elevation_degrees) while airborne — a karttu
-	# released by hand spins on a level axis. Re-asserted every physics
-	# step (see _physics_process) until first contact, since a single
-	# initial assignment was still visibly drifting off-axis in practice.
-	_karttu.angular_velocity = dir * rate
-	_lock_axis = dir
+	# Spin about the vertical axis — a level, flat spin (like a twirled
+	# baton or a thrown frisbee), not a horizontal-axis tumble that would
+	# pitch it up onto its end. The karttu's length starts broadside
+	# (perpendicular to travel, sweeping across a row of kyykkä); yawing
+	# it 180 degrees returns it to that same broadside alignment (it's
+	# symmetric end-to-end), while 90/270 degrees points it lengthwise
+	# down the throw direction instead — narrow, hits far fewer kyykkä.
+	# Driven kinematically (see _physics_process), not just set once.
+	_karttu.angular_velocity = Vector3.UP * rate
+	_lock_axis = Vector3.UP
 	_lock_rate = rate
 	_lock_elapsed = 0.0
 	_lock_start_basis = _karttu.global_transform.basis
