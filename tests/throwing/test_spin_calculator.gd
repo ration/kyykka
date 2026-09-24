@@ -7,10 +7,10 @@ func test_time_of_flight_matches_projectile_formula() -> void:
 	assert_almost_eq(t, 10.0 / 9.8, 0.0001)
 
 
-func test_middle_release_gives_exactly_one_rotation() -> void:
+func test_middle_release_gives_exactly_half_a_rotation() -> void:
 	var flight := 2.0
 	var rate := SpinCalculator.spin_rate(90.0, flight)
-	assert_almost_eq(rate * flight, TAU, 0.0001)
+	assert_almost_eq(rate * flight, PI, 0.0001)
 
 
 func test_zero_release_gives_zero_spin() -> void:

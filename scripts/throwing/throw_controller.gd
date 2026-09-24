@@ -9,9 +9,10 @@ extends Node3D
 ## Throw distance is fixed for now (power is a later feature); the skill
 ## mechanic is the swing timing: holding the button sweeps a 0-180 degree
 ## gauge, and release timing sets spin (see SpinCalculator). Releasing at
-## the middle (90) spins the karttu exactly one full rotation by the time
-## it lands, so it hits flush; releasing early/late under/over-rotates
-## it. Running the gauge past 180 without releasing cancels the swing.
+## the middle (90) spins the karttu exactly half a rotation by the time
+## it lands, so it hits flush (parallel to the stack again — see
+## SpinCalculator); releasing early/late under/over-rotates it. Running
+## the gauge past 180 without releasing cancels the swing.
 
 signal throw_settled
 
@@ -37,7 +38,6 @@ signal throw_settled
 @export var settle_timeout_seconds: float = 5.0
 @export var karttu_rest_height: float = 0.03  ## roughly its radius, so it rests on the ground rather than clipping into it
 @export var miss_indicator_seconds: float = 0.8
-@export var lock_grace_seconds: float = 0.15  ## ignore contacts for this long after launch — contact_monitor can briefly still report the pre-launch resting contact
 
 var watch_root: Node3D  ## subtree whose RigidBody3Ds must settle (the current target PesaView); set via configure()
 
@@ -45,24 +45,8 @@ var _yaw_degrees: float = 0.0
 var _elevation_degrees: float = 15.0  ## current up/down aim; reset to launch_elevation_degrees in configure()
 var _fov_degrees: float = 70.0  ## current zoom level; reset to default_fov_degrees in configure()
 var _forward_direction: Vector3 = Vector3(0, 0, 1)  ## yaw=0 aim direction; set via configure()
-var _karttu: RigidBody3D
+var _karttu: Karttu
 var _busy: bool = false
-
-## While true, the karttu's orientation is driven kinematically (see
-## _physics_process) — an exact analytic rotation about _lock_axis at
-## _lock_rate — rather than trusting the physics solver's own rotational
-## dynamics, which in practice introduced visible wobble (a measured
-## angular_velocity.y up to ~1.85 rad/s appearing within a single physics
-## step even when re-asserted every frame, i.e. real torque/precession,
-## not just float drift). Cleared the instant the karttu registers its
-## first contact after a short launch grace period (see lock_grace_seconds)
-## — after that, contact impulses (ground, kyykkä) are free to send the
-## spin anywhere, same as real physics always would.
-var _locking_spin: bool = false
-var _lock_axis: Vector3 = Vector3.ZERO
-var _lock_rate: float = 0.0
-var _lock_elapsed: float = 0.0
-var _lock_start_basis: Basis = Basis.IDENTITY
 
 var _swinging: bool = false
 var _gauge_degrees: float = 0.0
@@ -103,14 +87,12 @@ func configure(p_position: Vector3, p_forward: Vector3, p_watch_root: Node3D) ->
 
 
 func _reset_karttu() -> void:
+	_karttu.stop_spin_lock()
 	_karttu.freeze = true
 	_karttu.linear_velocity = Vector3.ZERO
 	_karttu.angular_velocity = Vector3.ZERO
 	_karttu.global_position = global_position + Vector3.UP * karttu_rest_height
 	_karttu.global_rotation = Vector3.ZERO
-	_karttu.contact_monitor = true
-	_karttu.max_contacts_reported = 4
-	_locking_spin = false
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -168,27 +150,6 @@ func _process(delta: float) -> void:
 			_miss_label.hide()
 
 
-func _physics_process(delta: float) -> void:
-	if not _locking_spin:
-		return
-
-	_lock_elapsed += delta
-
-	# contact_count is ambiguous for a short while right after unfreezing
-	# — it can keep reporting the pre-launch resting contact for a few
-	# frames even though the karttu has genuinely already left the
-	# ground — so a real contact only counts as landing once the grace
-	# period has passed.
-	if _lock_elapsed > lock_grace_seconds and _karttu.get_contact_count() > 0:
-		_locking_spin = false
-		return
-
-	_karttu.angular_velocity = _lock_axis * _lock_rate
-	var t := _karttu.global_transform
-	t.basis = _lock_start_basis.rotated(_lock_axis, _lock_rate * _lock_elapsed)
-	_karttu.global_transform = t
-
-
 ## Horizontal-only facing (yaw applied to _forward_direction). Used as the
 ## camera's stand-off direction and as the base for _look_direction().
 func _aim_direction() -> Vector3:
@@ -226,13 +187,8 @@ func _throw(gauge_degrees: float) -> void:
 	# it 180 degrees returns it to that same broadside alignment (it's
 	# symmetric end-to-end), while 90/270 degrees points it lengthwise
 	# down the throw direction instead — narrow, hits far fewer kyykkä.
-	# Driven kinematically (see _physics_process), not just set once.
-	_karttu.angular_velocity = Vector3.UP * rate
-	_lock_axis = Vector3.UP
-	_lock_rate = rate
-	_lock_elapsed = 0.0
-	_lock_start_basis = _karttu.global_transform.basis
-	_locking_spin = true
+	# Driven by the karttu itself via _integrate_forces, not set once.
+	_karttu.start_spin_lock(Vector3.UP, rate)
 
 	await _await_settle()
 	_reset_karttu()
