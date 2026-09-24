@@ -1,8 +1,11 @@
 extends Node3D
-## Procedurally builds the kyykkä court: a ground plane plus the boundary
-## and pesä (playing square) lines described in README.md. Built at
-## runtime rather than hand-placed so the dimensions stay in one place
-## and can be tuned via the exported fields below.
+## Procedurally builds the static kyykkä court: a ground plane plus the
+## boundary and pesä (playing square) lines described in README.md, plus
+## ground collision. Built at runtime rather than hand-placed so the
+## dimensions stay in one place and can be tuned via the exported fields
+## below. Equipment and game-flow (pesäs, turns, halves, the match) are
+## MatchController's job, not this script's — it just hands over the
+## dimensions/scenes MatchController needs.
 
 @export var court_width: float = 5.0    ## metres, along X
 @export var court_length: float = 20.0  ## metres, along Z
@@ -15,44 +18,27 @@ extends Node3D
 @export var ground_thickness: float = 0.2
 
 
-## Phase 3 demo wiring: one Attack, thrown at from the near pesä's front
-## line toward the far pesä. Phase 4 replaces this with the real
-## match/turn loop, so it's kept minimal rather than building
-## infrastructure that would just be discarded then.
 func _ready() -> void:
 	var hw := court_width / 2.0
 	var hl := court_length / 2.0
 	var near_pesa_z := -hl + pesa_size
 	var far_pesa_z := hl - pesa_size
 
-	var far_pesa_view := _build_pesa_view(far_pesa_z, 1.0)
-
 	add_child(_build_ground())
 	add_child(_build_ground_collision(hw, hl))
 	add_child(_build_lines(hw, hl, near_pesa_z, far_pesa_z))
-	add_child(_build_pesa_view(near_pesa_z, -1.0))
-	add_child(far_pesa_view)
 
-	var attack := Attack.new(Team.new("Player"), Pesa.new(far_pesa_view.piece_count), KyykkaMatch.DEFAULT_KARTTU_BUDGET)
-	var scorer := PesaScorer.new(far_pesa_view, attack)
-
-	var thrower := ThrowController.new()
-	thrower.name = "ThrowController"
-	thrower.karttu_scene = preload("res://scenes/karttu.tscn")
-	thrower.watch_root = far_pesa_view
-	thrower.camera = $Camera3D
-	thrower.position = Vector3(0, 0, near_pesa_z)
-	thrower.throw_settled.connect(func() -> void:
-		attack.throw(scorer.score_current_state())
-		print("Attack: karttu_used=%d/%d in_square=%d on_line=%d removed=%d finished=%s" % [
-			attack.karttu_used, attack.karttu_budget,
-			attack.pesa.in_square, attack.pesa.on_line, attack.pesa.removed,
-			attack.is_finished(),
-		])
-		if attack.is_finished():
-			print("Attack finished. Score: ", attack.score())
-	)
-	add_child(thrower)
+	var match_controller := MatchController.new()
+	match_controller.name = "MatchController"
+	match_controller.court_width = court_width
+	match_controller.pesa_size = pesa_size
+	match_controller.near_pesa_z = near_pesa_z
+	match_controller.far_pesa_z = far_pesa_z
+	match_controller.pesa_side_margin = pesa_side_margin
+	match_controller.kyykka_scene = preload("res://scenes/kyykka.tscn")
+	match_controller.karttu_scene = preload("res://scenes/karttu.tscn")
+	match_controller.camera = $Camera3D
+	add_child(match_controller)
 
 
 func _build_ground() -> MeshInstance3D:
@@ -116,18 +102,6 @@ func _build_lines(hw: float, hl: float, near_pesa_z: float, far_pesa_z: float) -
 	lines.material_override = mat
 	lines.position.y = 0.01  # avoid z-fighting with the ground
 	return lines
-
-
-func _build_pesa_view(z: float, depth_direction: float) -> PesaView:
-	var view := PesaView.new()
-	view.name = "PesaView"
-	view.kyykka_scene = preload("res://scenes/kyykka.tscn")
-	view.usable_width = court_width - 2.0 * pesa_side_margin
-	view.pesa_half_width = court_width / 2.0
-	view.pesa_depth = pesa_size
-	view.depth_direction = depth_direction
-	view.position = Vector3(0, 0, z)
-	return view
 
 
 func _add_segment(st: SurfaceTool, from: Vector3, to: Vector3) -> void:

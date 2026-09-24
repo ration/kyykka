@@ -1,9 +1,10 @@
 class_name ThrowController
 extends Node3D
 ## Player-controlled aiming/throwing rig. Pure input/physics — knows
-## nothing about the rules engine. Reuses a single karttu instance per
-## throw and reports completion via throw_settled; whoever owns this node
-## (court.gd) is responsible for scoring the result.
+## nothing about the rules engine or whose turn it is. Reuses a single
+## karttu instance per throw and reports completion via throw_settled;
+## whoever owns this node (MatchController) is responsible for scoring
+## the result and repositioning it (via configure()) for the next turn.
 ##
 ## Throw distance is fixed for now (power is a later feature); the skill
 ## mechanic is the swing timing: holding the button sweeps a 0-180 degree
@@ -15,8 +16,8 @@ extends Node3D
 signal throw_settled
 
 @export var karttu_scene: PackedScene
-@export var watch_root: Node3D  ## subtree whose RigidBody3Ds must settle (the target PesaView)
 @export var camera: Camera3D
+@export var enabled: bool = true  ## set false to stop accepting input once the match is over
 
 @export var aim_cone_degrees: float = 25.0
 @export var mouse_sensitivity: float = 0.2  ## degrees per pixel of mouse motion
@@ -32,7 +33,10 @@ signal throw_settled
 @export var miss_indicator_seconds: float = 0.8
 @export var lock_grace_seconds: float = 0.15  ## ignore contacts for this long after launch — contact_monitor can briefly still report the pre-launch resting contact
 
+var watch_root: Node3D  ## subtree whose RigidBody3Ds must settle (the current target PesaView); set via configure()
+
 var _yaw_degrees: float = 0.0
+var _forward_direction: Vector3 = Vector3(0, 0, 1)  ## yaw=0 aim direction; set via configure()
 var _karttu: RigidBody3D
 var _busy: bool = false
 
@@ -67,13 +71,24 @@ const GAUGE_HEIGHT := 16.0
 
 
 func _ready() -> void:
-	assert(karttu_scene != null and watch_root != null and camera != null)
+	assert(karttu_scene != null and camera != null)
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	_karttu = karttu_scene.instantiate()
 	get_parent().add_child(_karttu)
+	_build_gauge_ui()
+
+
+## Positions this thrower for a turn: where it stands, which way is
+## "straight ahead" (yaw=0), and which PesaView's kyykkä to watch for
+## settling. Called once right after this node enters the tree for the
+## first turn, and again whenever the active side changes.
+func configure(p_position: Vector3, p_forward: Vector3, p_watch_root: Node3D) -> void:
+	position = p_position
+	_forward_direction = p_forward.normalized()
+	watch_root = p_watch_root
+	_yaw_degrees = 0.0
 	_reset_karttu()
 	_update_camera()
-	_build_gauge_ui()
 
 
 func _reset_karttu() -> void:
@@ -88,6 +103,9 @@ func _reset_karttu() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if not enabled:
+		return
+
 	if event is InputEventMouseMotion and not _busy:
 		_yaw_degrees = clampf(
 			_yaw_degrees - event.relative.x * mouse_sensitivity,
@@ -149,8 +167,7 @@ func _physics_process(delta: float) -> void:
 
 
 func _aim_direction() -> Vector3:
-	var yaw := deg_to_rad(_yaw_degrees)
-	return Vector3(sin(yaw), 0.0, cos(yaw)).normalized()
+	return _forward_direction.rotated(Vector3.UP, deg_to_rad(_yaw_degrees))
 
 
 func _update_camera() -> void:

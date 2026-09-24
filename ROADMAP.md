@@ -44,10 +44,19 @@ conventions.
     throw ballistics are a first-pass estimate, not yet tuned by feel —
     see CLAUDE.md's Throwing section
 
-- [ ] **Phase 4 — Game loop integration**
-  - Turn switching, half switching (reset/repopulate pesä), match end →
-    results
-  - Camera follows current thrower
+- [x] **Phase 4 — Game loop integration**
+  - Turn switching — `Half.next_attack()` (rule, tested) drives
+    `MatchController` (`scripts/match_controller.gd`), which reconfigures
+    the single hot-seat `ThrowController` for whichever side goes next
+  - Half switching (reset/repopulate pesä) — fresh `PesaView`s each half
+  - Match end → results — printed to console for now (no HUD, Phase 5)
+  - Camera follows current thrower — falls out of `ThrowController.configure()`
+    repositioning it each turn
+  - Hot-seat only for now (same controls, both sides) — real per-player
+    polish is Phase 7, AI is Phase 6
+  - Verified end-to-end with a throwaway headless script through a full
+    2-half match (turns alternate, halves reset kyykkä counts, match
+    finishes, thrower disables)
 
 - [ ] **Phase 5 — UI**
   - HUD (score, whose turn, karttu remaining, kyykkä remaining)

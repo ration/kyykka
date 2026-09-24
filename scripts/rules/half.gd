@@ -23,3 +23,12 @@ func score_for(team: Team) -> int:
 		return attack_by_team_b.score()
 	push_error("Team is not part of this half")
 	return 0
+
+
+## Which Attack should throw next, given `current` just finished a throw.
+## Alternates to the other side unless it's already finished, in which
+## case the still-unfinished side continues alone. Only meaningful while
+## is_finished() is false.
+func next_attack(current: Attack) -> Attack:
+	var other := attack_by_team_b if current == attack_by_team_a else attack_by_team_a
+	return other if not other.is_finished() else current
