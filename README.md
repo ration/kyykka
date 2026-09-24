@@ -42,6 +42,9 @@ This project aims to recreate kyykkä as a digital PC game using the Godot engin
 
 Requires [Godot 4.7](https://godotengine.org/download) on your `PATH` as `godot`.
 
-- Open the editor: `godot -e --path .`
-- Run the game: `./tools/run.sh`
-- Export a build: `./tools/export.sh "<preset name>" builds/kyykka` (see `tools/export.sh` for one-time setup of export presets and templates)
+- `make run` — run the game
+- `make edit` — open the project in the editor
+- `make check` — headless smoke test (loads the project, then quits)
+- `make export PRESET="<preset name>" OUT=builds/kyykka` — export a build (see `tools/export.sh` for one-time setup of export presets and templates)
+- `make clean` — remove local build/import artifacts
+- `make help` — list all targets

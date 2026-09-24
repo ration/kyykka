@@ -15,11 +15,14 @@ The full game rules — field/square layout, kyykkä and karttu equipment, turn 
 
 ## Commands
 
-- **Open the editor**: `godot -e --path .`
-- **Run the game**: `./tools/run.sh` (wraps `godot --path .`)
-- **Headless smoke test** (loads the project and main scene, then exits — useful to catch script/scene errors without a display): `godot --headless --path . --quit`
-- **Export a build**: `./tools/export.sh "<preset name>" builds/kyykka`. This requires export presets to exist first — none are checked in yet. Create them once via the editor (Project > Export...), which writes `export_presets.cfg`, and install matching export templates first (Editor > Manage Export Templates). `export_presets.cfg` is safe to commit once it exists.
-- There is no test suite yet. If one is added, prefer [GUT](https://github.com/bitwes/Gut) (the de facto GDScript unit test framework) and document its run command here.
+Run via `make` (see `make help`); each target just wraps a `tools/*.sh` script or a direct Godot CLI call:
+
+- `make run` — run the game (`tools/run.sh`, wraps `godot --path .`)
+- `make edit` — open the project in the editor (`godot -e --path .`)
+- `make check` — headless smoke test: loads the project and main scene, then quits. Useful to catch script/scene errors without a display: `godot --headless --path . --quit`
+- `make export PRESET="<preset name>" OUT=builds/kyykka` — export a build (`tools/export.sh`). This requires export presets to exist first — none are checked in yet. Create them once via the editor (Project > Export...), which writes `export_presets.cfg`, and install matching export templates first (Editor > Manage Export Templates). `export_presets.cfg` is safe to commit once it exists.
+- `make clean` — remove local build/import artifacts (`.godot/`, `builds/`)
+- There is no test suite yet. If one is added, prefer [GUT](https://github.com/bitwes/Gut) (the de facto GDScript unit test framework), give it its own `make test` target, and document it here.
 - There is no dedicated linter configured. [gdtoolkit](https://github.com/Scony/godot-gdscript-toolkit) (`gdformat`, `gdlint`) is the common external option if one is wanted later — it is not installed as part of this repo.
 
 ## Project structure
@@ -28,7 +31,8 @@ The full game rules — field/square layout, kyykkä and karttu equipment, turn 
 - `scenes/` — `.tscn` scene files.
 - `scripts/` — GDScript files. `main.gd` is attached to the current placeholder root scene.
 - `assets/` — art/audio/etc. (currently empty).
-- `tools/` — repo-local shell scripts wrapping Godot CLI invocations (`run.sh`, `export.sh`), not Godot engine code.
+- `Makefile` — common command entry points (see Commands above).
+- `tools/` — repo-local shell scripts the Makefile wraps (`run.sh`, `export.sh`), not Godot engine code.
 - `.godot/` is the engine's local import/cache directory, regenerated automatically and gitignored — never edit or commit it.
 
 As real gameplay code lands, expand this section with the actual scene/script architecture (how the court and pieces are represented, how turns and scoring are tracked) rather than leaving it at this file-layout level.
