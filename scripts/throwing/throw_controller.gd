@@ -179,6 +179,7 @@ func _throw(gauge_degrees: float) -> void:
 	var rate := SpinCalculator.spin_rate(gauge_degrees, flight)
 
 	_karttu.freeze = false
+	_karttu.sleeping = false
 	_karttu.linear_velocity = launch_dir * throw_speed
 	# Spin about the vertical axis — a level, flat spin (like a twirled
 	# baton or a thrown frisbee), not a horizontal-axis tumble that would
