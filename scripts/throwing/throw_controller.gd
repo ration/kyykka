@@ -24,7 +24,7 @@ signal throw_settled
 @export var mouse_sensitivity: float = 0.2  ## degrees per pixel of mouse motion
 
 @export var swing_seconds: float = 1.0  ## time for the gauge to sweep 0 -> 180
-@export var throw_speed: float = 17.0  ## fixed for now; variable power is a later feature
+@export var throw_speed: float = 14.8  ## fixed for now; variable power is a later feature
 @export var launch_elevation_degrees: float = 15.0  ## default/neutral aim, reset each turn
 @export var min_elevation_degrees: float = -10.0  ## how far below flat you can aim, for shorter throws that land nearer the middle of the pesä rather than always sailing deep
 @export var max_elevation_degrees: float = 45.0  ## how far up you can aim
@@ -42,7 +42,7 @@ signal throw_settled
 var watch_root: Node3D  ## subtree whose RigidBody3Ds must settle (the current target PesaView); set via configure()
 
 var _yaw_degrees: float = 0.0
-var _elevation_degrees: float = 15.0  ## current up/down aim; reset to launch_elevation_degrees in configure()
+var _elevation_degrees: float = 10.0  ## current up/down aim; reset to launch_elevation_degrees in configure()
 var _fov_degrees: float = 70.0  ## current zoom level; reset to default_fov_degrees in configure()
 var _forward_direction: Vector3 = Vector3(0, 0, 1)  ## yaw=0 aim direction; set via configure()
 var _karttu: Karttu
