@@ -30,10 +30,27 @@ signal throw_settled
 @export var settle_timeout_seconds: float = 5.0
 @export var karttu_rest_height: float = 0.03  ## roughly its radius, so it rests on the ground rather than clipping into it
 @export var miss_indicator_seconds: float = 0.8
+@export var lock_grace_seconds: float = 0.15  ## ignore contacts for this long after launch — contact_monitor can briefly still report the pre-launch resting contact
 
 var _yaw_degrees: float = 0.0
 var _karttu: RigidBody3D
 var _busy: bool = false
+
+## While true, the karttu's orientation is driven kinematically (see
+## _physics_process) — an exact analytic rotation about _lock_axis at
+## _lock_rate — rather than trusting the physics solver's own rotational
+## dynamics, which in practice introduced visible wobble (a measured
+## angular_velocity.y up to ~1.85 rad/s appearing within a single physics
+## step even when re-asserted every frame, i.e. real torque/precession,
+## not just float drift). Cleared the instant the karttu registers its
+## first contact after a short launch grace period (see lock_grace_seconds)
+## — after that, contact impulses (ground, kyykkä) are free to send the
+## spin anywhere, same as real physics always would.
+var _locking_spin: bool = false
+var _lock_axis: Vector3 = Vector3.ZERO
+var _lock_rate: float = 0.0
+var _lock_elapsed: float = 0.0
+var _lock_start_basis: Basis = Basis.IDENTITY
 
 var _swinging: bool = false
 var _gauge_degrees: float = 0.0
@@ -65,6 +82,9 @@ func _reset_karttu() -> void:
 	_karttu.angular_velocity = Vector3.ZERO
 	_karttu.global_position = global_position + Vector3.UP * karttu_rest_height
 	_karttu.global_rotation = Vector3.ZERO
+	_karttu.contact_monitor = true
+	_karttu.max_contacts_reported = 4
+	_locking_spin = false
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -107,6 +127,27 @@ func _process(delta: float) -> void:
 			_miss_label.hide()
 
 
+func _physics_process(delta: float) -> void:
+	if not _locking_spin:
+		return
+
+	_lock_elapsed += delta
+
+	# contact_count is ambiguous for a short while right after unfreezing
+	# — it can keep reporting the pre-launch resting contact for a few
+	# frames even though the karttu has genuinely already left the
+	# ground — so a real contact only counts as landing once the grace
+	# period has passed.
+	if _lock_elapsed > lock_grace_seconds and _karttu.get_contact_count() > 0:
+		_locking_spin = false
+		return
+
+	_karttu.angular_velocity = _lock_axis * _lock_rate
+	var t := _karttu.global_transform
+	t.basis = _lock_start_basis.rotated(_lock_axis, _lock_rate * _lock_elapsed)
+	_karttu.global_transform = t
+
+
 func _aim_direction() -> Vector3:
 	var yaw := deg_to_rad(_yaw_degrees)
 	return Vector3(sin(yaw), 0.0, cos(yaw)).normalized()
@@ -132,10 +173,15 @@ func _throw(gauge_degrees: float) -> void:
 	_karttu.linear_velocity = launch_dir * throw_speed
 	# Spin about the horizontal aim direction (not launch_dir, which
 	# tilts up by launch_elevation_degrees) while airborne — a karttu
-	# released by hand spins on a level axis; once it hits the ground,
-	# contact impulses are free to send the spin any direction, which
-	# RigidBody3D already does on its own without help from this code.
+	# released by hand spins on a level axis. Re-asserted every physics
+	# step (see _physics_process) until first contact, since a single
+	# initial assignment was still visibly drifting off-axis in practice.
 	_karttu.angular_velocity = dir * rate
+	_lock_axis = dir
+	_lock_rate = rate
+	_lock_elapsed = 0.0
+	_lock_start_basis = _karttu.global_transform.basis
+	_locking_spin = true
 
 	await _await_settle()
 	_reset_karttu()
