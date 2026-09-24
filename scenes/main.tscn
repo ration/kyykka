@@ -1,0 +1,13 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/main.gd" id="1_o5qli"]
+
+[node name="Main" type="Node2D" unique_id=1710049007]
+script = ExtResource("1_o5qli")
+
+[node name="TitleLabel" type="Label" parent="." unique_id=1276959945]
+offset_left = 420.0
+offset_top = 300.0
+offset_right = 420.0
+offset_bottom = 300.0
+text = "Kyykkä"

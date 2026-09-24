@@ -37,3 +37,11 @@ Kyykkä ("Finnish skittles") is one of Finland's oldest traditional games. Two t
 ## Project
 
 This project aims to recreate kyykkä as a digital PC game using the Godot engine. The repository is in its early stages — see `CLAUDE.md` for the current project status and guidance for contributors.
+
+## Development
+
+Requires [Godot 4.7](https://godotengine.org/download) on your `PATH` as `godot`.
+
+- Open the editor: `godot -e --path .`
+- Run the game: `./tools/run.sh`
+- Export a build: `./tools/export.sh "<preset name>" builds/kyykka` (see `tools/export.sh` for one-time setup of export presets and templates)
