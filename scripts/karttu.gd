@@ -40,6 +40,7 @@ extends SettlingBody
 ## switches to the landed_* values so it still settles quickly afterward.
 
 const LOCK_GRACE_SECONDS := 0.15
+const MIN_SWEEP_DISTANCE := 0.03  ## metres per step; below this the regular solver can't skip past a kyykkä
 
 @export var flight_linear_damp: float = 0.0
 @export var flight_angular_damp: float = 0.0
@@ -52,11 +53,21 @@ var _lock_rate: float = 0.0
 var _lock_elapsed: float = 0.0
 var _lock_start_basis: Basis = Basis.IDENTITY
 
+var _held_velocity: Vector3 = Vector3.ZERO
+var _has_held_velocity: bool = false
+
+@onready var _collision_shape: CollisionShape3D = $CollisionShape3D
+
 
 func _ready() -> void:
 	super._ready()
 	contact_monitor = true
 	max_contacts_reported = 4
+	# COMBINE (the default) adds the project's default_linear_damp (0.1)
+	# on top, so "zero" flight damping still dragged throws ~7% short of
+	# the Ballistics solution ThrowController aims with.
+	linear_damp_mode = DAMP_MODE_REPLACE
+	angular_damp_mode = DAMP_MODE_REPLACE
 	linear_damp = landed_linear_damp
 	angular_damp = landed_angular_damp
 
@@ -73,14 +84,23 @@ func start_spin_lock(axis: Vector3, rate: float) -> void:
 
 func stop_spin_lock() -> void:
 	_locking_spin = false
+	_has_held_velocity = false
 	linear_damp = landed_linear_damp
 	angular_damp = landed_angular_damp
 
 
 func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
-	if not _locking_spin:
-		return
+	if _has_held_velocity:
+		state.linear_velocity = _held_velocity
+		_has_held_velocity = false
 
+	if _locking_spin:
+		_update_spin_lock(state)
+
+	_stop_short_of_next_hit(state)
+
+
+func _update_spin_lock(state: PhysicsDirectBodyState3D) -> void:
 	_lock_elapsed += state.step
 
 	if _lock_elapsed > LOCK_GRACE_SECONDS and get_contact_count() > 0:
@@ -100,3 +120,38 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 	var t := state.transform
 	t.basis = _lock_start_basis.rotated(_lock_axis, _lock_rate * _lock_elapsed)
 	state.transform = t
+
+
+## Hand-rolled continuous collision detection. At throw speed the karttu
+## covers ~0.27 m per physics step, several times a kyykkä's collision
+## depth, and continuous_cd doesn't reliably catch dynamic (RigidBody)
+## targets — so a direct hit usually skipped clean past the piece between
+## two steps. Casts this body's own shape along the motion it's about to
+## make; if that would pass into something new, only this one step is
+## shortened so it ends up touching it, and the full velocity is restored
+## next step so the solver resolves a real full-speed impact. Bodies
+## already in contact (the ground, while sliding) are ignored, or the
+## karttu would stall against the floor it's resting on.
+func _stop_short_of_next_hit(state: PhysicsDirectBodyState3D) -> void:
+	var motion := state.linear_velocity * state.step
+	if motion.length() < MIN_SWEEP_DISTANCE:
+		return
+
+	var exclude: Array[RID] = [get_rid()]
+	for i in range(state.get_contact_count()):
+		exclude.append(state.get_contact_collider(i))
+
+	var query := PhysicsShapeQueryParameters3D.new()
+	query.shape = _collision_shape.shape
+	query.transform = state.transform * _collision_shape.transform
+	query.motion = motion
+	query.exclude = exclude
+	query.collision_mask = collision_mask
+
+	var fractions := state.get_space_state().cast_motion(query)
+	var unsafe := fractions[1]
+	if unsafe >= 1.0:
+		return
+	_held_velocity = state.linear_velocity
+	_has_held_velocity = true
+	state.linear_velocity *= unsafe

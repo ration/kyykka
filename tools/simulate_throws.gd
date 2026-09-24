@@ -12,16 +12,16 @@ extends SceneTree
 ## budget so turn/half rollover doesn't need special handling)
 ##
 ## Spreads gauge (spin timing) across the full 0-180 range across the
-## requested throws. Aims at the row's rightmost stack (~12.5 degrees of
-## yaw), not dead center: the pesä is a full 5x5m square, and a piece hit
-## dead center has to travel the whole 4.85m remaining depth to register
-## as a rules-engine score, which even a solid mechanical hit often can't
-## manage — that's a property of the scoring rules, not the physics, and
-## made every throw read as a "miss" even when the karttu was genuinely
-## connecting (verified separately by tracing piece displacement
-## directly). The rightmost stack sits only ~0.25m from the side
-## boundary, so a real connection there reliably registers as a score,
-## which is what makes this a meaningful regression check.
+## requested throws. Each throw points the camera (yaw and pitch, the way
+## a player aims — see ThrowController._aim_distance()) at the outermost
+## kyykkä still standing, not dead center: the pesä is a full 5x5m
+## square, and a piece hit dead center has to travel the whole 4.85m
+## remaining depth to register as a rules-engine score, which even a
+## solid mechanical hit often can't manage — that's a property of the
+## scoring rules, not the physics. Outer stacks sit only ~0.25m from the
+## side boundary, so a real connection there reliably registers as a
+## score. Re-picking the target every throw matters: aiming at one fixed
+## spot kept throwing at empty ground once the first hit cleared it.
 ##
 ## "contact" (did the karttu physically move a piece at all) and "scored"
 ## (did that movement cross a rules-engine zone boundary) are tracked and
@@ -62,7 +62,11 @@ func _initialize() -> void:
 		for piece in target_view.get_children():
 			before_positions[piece] = piece.global_position
 
-		thrower._yaw_degrees = 12.5  # aims at the edge stack, ~0.25m from the side boundary
+		var target_piece := _outermost_standing(target_view)
+		if target_piece == null:
+			print("no standing kyykkä left to aim at, stopping")
+			break
+		_aim_at(thrower, target_piece.global_position)
 		var start_ms := Time.get_ticks_msec()
 		thrower._throw(gauge)
 		await thrower.throw_settled
@@ -118,3 +122,25 @@ func _initialize() -> void:
 		print("avg settle frames: %.1f (%.2fs)" % [float(total) / thrown, float(total) / thrown / 60.0])
 	print("hit settle_timeout_seconds cap: %d/%d" % [timed_out, thrown])
 	quit()
+
+
+func _outermost_standing(view: PesaView) -> Node3D:
+	var best: Node3D = null
+	for piece in view.get_children():
+		# Still upright (a toppled kyykkä's centre sits lower) and still
+		# inside the square's width.
+		if piece.global_position.y < 0.042 or absf(piece.global_position.x) > view.pesa_half_width:
+			continue
+		if best == null or absf(piece.global_position.x) > absf(best.global_position.x):
+			best = piece
+	return best
+
+
+## Sets yaw and camera pitch so the look ray crosses aim_target_height
+## exactly at `point`, i.e. what a player lining the crosshair up on it gets.
+func _aim_at(thrower: ThrowController, point: Vector3) -> void:
+	var offset := point - thrower.global_position
+	offset.y = 0.0
+	thrower._yaw_degrees = rad_to_deg(thrower._forward_direction.signed_angle_to(offset, Vector3.UP))
+	var drop := thrower.camera_height - thrower.aim_target_height
+	thrower._elevation_degrees = -rad_to_deg(atan(drop / (offset.length() + thrower.camera_back_offset)))

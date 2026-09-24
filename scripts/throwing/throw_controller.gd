@@ -6,7 +6,14 @@ extends Node3D
 ## whoever owns this node (MatchController) is responsible for scoring
 ## the result and repositioning it (via configure()) for the next turn.
 ##
-## Throw distance is fixed for now (power is a later feature); the skill
+## Aiming is "point at where you want it to land": the camera's look ray
+## is cast onto the ground at kyykkä height, and the launch angle is
+## solved (see Ballistics) so the fixed-speed karttu arcs to that point.
+## Throwing straight along the look direction instead made the natural
+## move — pointing the camera at the kyykkä — throw the karttu downward
+## into the ground less than a metre out.
+##
+## Throw speed is fixed for now (power is a later feature); the skill
 ## mechanic is the swing timing: holding the button sweeps a 0-180 degree
 ## gauge, and release timing sets spin (see SpinCalculator). Releasing at
 ## the middle (90) spins the karttu exactly half a rotation by the time
@@ -25,9 +32,12 @@ signal throw_settled
 
 @export var swing_seconds: float = 1.0  ## time for the gauge to sweep 0 -> 180
 @export var throw_speed: float = 16.0  ## fixed for now; variable power is a later feature
-@export var launch_elevation_degrees: float = 13.0  ## default/neutral aim, reset each turn
-@export var min_elevation_degrees: float = -10.0  ## how far below flat you can aim, for shorter throws that land nearer the middle of the pesä rather than always sailing deep
-@export var max_elevation_degrees: float = 45.0  ## how far up you can aim
+@export var launch_elevation_degrees: float = -7.5  ## camera pitch reset each turn; looks at the target pesä's kyykkä row from the default camera spot
+@export var min_elevation_degrees: float = -20.0  ## steepest downward look, i.e. the shortest throw (~3 m out)
+@export var max_elevation_degrees: float = 0.0  ## looking at or above the horizon aims at max_throw_distance
+@export var aim_target_height: float = 0.1  ## height the look ray is cast onto: mid-height of a stacked kyykkä pair
+@export var min_throw_distance: float = 2.0
+@export var max_throw_distance: float = 16.0  ## a little past the far pesä's back line
 
 @export var camera_height: float = 1.6
 @export var camera_back_offset: float = 1.2
@@ -42,7 +52,7 @@ signal throw_settled
 var watch_root: Node3D  ## subtree whose RigidBody3Ds must settle (the current target PesaView); set via configure()
 
 var _yaw_degrees: float = 0.0
-var _elevation_degrees: float = 10.0  ## current up/down aim; reset to launch_elevation_degrees in configure()
+var _elevation_degrees: float = 0.0  ## current camera pitch; reset to launch_elevation_degrees in configure()
 var _fov_degrees: float = 70.0  ## current zoom level; reset to default_fov_degrees in configure()
 var _forward_direction: Vector3 = Vector3(0, 0, 1)  ## yaw=0 aim direction; set via configure()
 var _karttu: Karttu
@@ -156,26 +166,45 @@ func _aim_direction() -> Vector3:
 	return _forward_direction.rotated(Vector3.UP, deg_to_rad(_yaw_degrees))
 
 
-## Full 3D aim (yaw + elevation) — where the karttu actually gets thrown
-## and what the camera looks toward.
+## Full 3D camera look direction (yaw + pitch). Not the throw direction —
+## see _aim_distance().
 func _look_direction() -> Vector3:
 	var horizontal := _aim_direction()
 	var elevation := deg_to_rad(_elevation_degrees)
 	return (horizontal * cos(elevation) + Vector3.UP * sin(elevation)).normalized()
 
 
+func _camera_position() -> Vector3:
+	return global_position + Vector3.UP * camera_height - _aim_direction() * camera_back_offset
+
+
 func _update_camera() -> void:
-	var horizontal := _aim_direction()
-	camera.global_position = global_position + Vector3.UP * camera_height - horizontal * camera_back_offset
+	camera.global_position = _camera_position()
 	camera.look_at(camera.global_position + _look_direction(), Vector3.UP)
+
+
+## Horizontal distance from the thrower to where the camera's look ray
+## crosses aim_target_height — what the player is pointing at.
+func _aim_distance() -> float:
+	var origin := _camera_position()
+	var look := _look_direction()
+	if look.y >= -0.001:
+		return max_throw_distance
+	var hit := origin + look * ((aim_target_height - origin.y) / look.y)
+	var ahead := (hit - global_position).dot(_aim_direction())
+	return clampf(ahead, min_throw_distance, max_throw_distance)
 
 
 func _throw(gauge_degrees: float) -> void:
 	_busy = true
-	var launch_dir := _look_direction()
-
 	var gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
-	var flight := SpinCalculator.time_of_flight(throw_speed, _elevation_degrees, gravity)
+	var distance := _aim_distance()
+	var elevation := Ballistics.launch_elevation(
+		throw_speed, distance, aim_target_height - karttu_rest_height, gravity
+	)
+	var rad := deg_to_rad(elevation)
+	var launch_dir := _aim_direction() * cos(rad) + Vector3.UP * sin(rad)
+	var flight := Ballistics.flight_time(throw_speed, distance, elevation)
 	var rate := SpinCalculator.spin_rate(gauge_degrees, flight)
 
 	_karttu.freeze = false
@@ -224,6 +253,19 @@ func _rigid_bodies_under(node: Node) -> Array:
 func _build_gauge_ui() -> void:
 	_gauge_layer = CanvasLayer.new()
 	add_child(_gauge_layer)
+
+	# The mouse is captured, so without this there's nothing on screen
+	# showing what the look ray (and so the throw) is aimed at.
+	var crosshair := ColorRect.new()
+	crosshair.color = Color(1, 1, 1, 0.8)
+	crosshair.size = Vector2(4, 4)
+	crosshair.position = Vector2(-2, -2)
+	crosshair.anchor_left = 0.5
+	crosshair.anchor_right = 0.5
+	crosshair.anchor_top = 0.5
+	crosshair.anchor_bottom = 0.5
+	crosshair.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_gauge_layer.add_child(crosshair)
 
 	_gauge_bar = ColorRect.new()
 	_gauge_bar.color = Color(0.15, 0.15, 0.15, 0.85)

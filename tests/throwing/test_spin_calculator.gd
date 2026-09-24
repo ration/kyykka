@@ -1,12 +1,6 @@
 extends GutTest
 
 
-func test_time_of_flight_matches_projectile_formula() -> void:
-	# speed=10, elevation=30deg, gravity=9.8 -> 2*10*sin(30)/9.8 = 10/9.8
-	var t := SpinCalculator.time_of_flight(10.0, 30.0, 9.8)
-	assert_almost_eq(t, 10.0 / 9.8, 0.0001)
-
-
 func test_middle_release_gives_exactly_half_a_rotation() -> void:
 	var flight := 2.0
 	var rate := SpinCalculator.spin_rate(90.0, flight)

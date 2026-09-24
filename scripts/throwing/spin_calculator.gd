@@ -1,16 +1,8 @@
 class_name SpinCalculator
 extends RefCounted
-## Pure math for the swing-timing spin mechanic: how long a throw is
-## airborne, and what spin rate a given release timing should produce.
+## Pure math for the swing-timing spin mechanic: what spin rate a given
+## release timing should produce (flight time comes from Ballistics).
 ## No Node dependency, so it's directly GUT-testable like PieceClassifier.
-
-
-## Time (seconds) for a throw launched at `elevation_degrees` above
-## horizontal at `speed` m/s to return to its launch height, under
-## `gravity` m/s^2. Symmetric-parabola approximation — good enough since
-## the karttu's release height is tiny relative to the arc.
-static func time_of_flight(speed: float, elevation_degrees: float, gravity: float) -> float:
-	return 2.0 * speed * sin(deg_to_rad(elevation_degrees)) / gravity
 
 
 ## Spin rate (radians/sec) for a swing released at `gauge_degrees` (0-180,
