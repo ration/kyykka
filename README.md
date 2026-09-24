@@ -16,7 +16,7 @@ Kyykkä ("Finnish skittles") is one of Finland's oldest traditional games. Two t
 
 ### Equipment
 
-- **Kyykkä** — short wooden cylinders, about 10 cm tall and 6–8 cm in diameter. A full game uses 40 kyykkä per side (20 pairs), lined up along the front edge of the opponent's square.
+- **Kyykkä** — short wooden cylinders, about 10 cm tall and 6–8 cm in diameter. A full game uses 20 kyykkä per side (10 pairs, each pair stacked two high), lined up along the front edge of the opponent's square.
 - **Karttu** — wooden throwing bats, up to about 85 cm long, with a handle and no weight restriction. Each turn allows a limited number of karttu (commonly two per turn in team/pair play, four in individual play).
 
 ### Teams and turns

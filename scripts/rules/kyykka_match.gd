@@ -3,14 +3,15 @@ extends RefCounted
 ## Orchestrates a full match: two teams, HALVES_PER_MATCH halves, each
 ## worth a fresh Attack per team against a freshly-stocked Pesa.
 ##
-## Defaults follow README.md: 20 kyykkä pairs (40 pieces) per pesä and a
-## 20-karttu budget per attack (one nominal throw per pair). Named as
-## constants/constructor args so they're easy to correct once confirmed
-## against the official rulebook, and so Phase 2+ can wire up alternate
-## formats (pairs, individual play) without changing this class's shape.
+## Defaults follow README.md: 10 kyykkä pairs (20 pieces, stacked two high
+## per position) per pesä and a 10-karttu budget per attack (one nominal
+## throw per pair). Named as constants/constructor args so they're easy to
+## correct once confirmed against the official rulebook, and so Phase 2+
+## can wire up alternate formats (pairs, individual play) without changing
+## this class's shape.
 
-const DEFAULT_KYYKKA_PAIRS := 20
-const DEFAULT_KARTTU_BUDGET := 20
+const DEFAULT_KYYKKA_PAIRS := 10
+const DEFAULT_KARTTU_BUDGET := 10
 const HALVES_PER_MATCH := 2
 
 var team_a: Team

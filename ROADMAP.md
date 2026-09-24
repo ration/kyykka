@@ -23,8 +23,9 @@ conventions.
     `scenes/kyykka.tscn`
   - Karttu (bat) scene — `scenes/karttu.tscn` (built, not yet placed on the
     court: needs the throwing line, which isn't drawn yet)
-  - Place 20 pairs of kyykkä along each pesä's front line — `PesaView`
-    (`scripts/pesa_view.gd`), instantiated twice by `court.gd`
+  - Place 10 pairs of kyykkä (stacked two high) along each pesä's front
+    line — `PesaView` (`scripts/pesa_view.gd`), instantiated twice by
+    `court.gd`
   - Wire equipment counts to Phase 1's data model — `PesaView.piece_count`
     defaults to `KyykkaMatch.DEFAULT_KYYKKA_PAIRS * 2`
   - Also added ground collision (`court.gd`'s `GroundBody`), needed for
