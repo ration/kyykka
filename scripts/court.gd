@@ -56,7 +56,14 @@ func _build_ground() -> MeshInstance3D:
 
 
 ## Flat collision slab under the whole court (plus a margin) so kyykkä and
-## karttu RigidBody3D props have something to rest on.
+## karttu RigidBody3D props have something to rest on. Deliberately no
+## low-friction override here — Godot combines two bodies' friction
+## multiplicatively, so a low ground friction dragged down *everything*
+## touching it (diagnosed directly: a struck kyykkä given a modest 4 m/s
+## slide never fully stopped, stuck rocking at ~0.07 m/s forever). The
+## karttu's own low-friction material (karttu.tscn) is enough on its own
+## to let it slide through a target; the ground stays at normal friction
+## so kyykkä (kyykka.tscn's own higher-friction material) actually stop.
 func _build_ground_collision(hw: float, hl: float) -> StaticBody3D:
 	var shape := BoxShape3D.new()
 	shape.size = Vector3(
@@ -68,13 +75,9 @@ func _build_ground_collision(hw: float, hl: float) -> StaticBody3D:
 	var collision := CollisionShape3D.new()
 	collision.shape = shape
 
-	var mat := PhysicsMaterial.new()
-	mat.friction = 0.1  # low, so a thrown karttu slides through the target rather than stopping dead
-
 	var body := StaticBody3D.new()
 	body.name = "GroundBody"
 	body.position.y = -ground_thickness / 2.0
-	body.physics_material_override = mat
 	body.add_child(collision)
 	return body
 

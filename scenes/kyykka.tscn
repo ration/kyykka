@@ -11,10 +11,14 @@ height = 0.1
 [sub_resource type="BoxShape3D" id="BoxShape3D_6xlp2"]
 size = Vector3(0.0495, 0.1, 0.0495)
 
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_kyykka"]
+friction = 0.9
+
 [node name="Kyykka" type="RigidBody3D" unique_id=2081694920]
 mass = 0.23
-linear_damp = 0.5
-angular_damp = 0.5
+physics_material_override = SubResource("PhysicsMaterial_kyykka")
+linear_damp = 1.0
+angular_damp = 3.0
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=966605946]
 material_override = SubResource("StandardMaterial3D_jcnqi")
