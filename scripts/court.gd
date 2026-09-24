@@ -7,14 +7,25 @@ extends Node3D
 @export var court_width: float = 5.0    ## metres, along X
 @export var court_length: float = 20.0  ## metres, along Z
 @export var pesa_size: float = 5.0      ## each pesä square is pesa_size x court_width
+@export var pesa_side_margin: float = 0.25  ## gap between kyykkä pairs and the pesä's side lines
 @export var line_width: float = 0.08    ## metres
 @export var line_color: Color = Color.WHITE
 @export var ground_color: Color = Color(0.76, 0.66, 0.47)  ## sand/gravel
+@export var ground_margin: float = 5.0  ## collision extends this far past the drawn court on each side
+@export var ground_thickness: float = 0.2
 
 
 func _ready() -> void:
+	var hw := court_width / 2.0
+	var hl := court_length / 2.0
+	var near_pesa_z := -hl + pesa_size
+	var far_pesa_z := hl - pesa_size
+
 	add_child(_build_ground())
-	add_child(_build_lines())
+	add_child(_build_ground_collision(hw, hl))
+	add_child(_build_lines(hw, hl, near_pesa_z, far_pesa_z))
+	add_child(_build_pesa_view(near_pesa_z))
+	add_child(_build_pesa_view(far_pesa_z))
 
 
 func _build_ground() -> MeshInstance3D:
@@ -31,22 +42,36 @@ func _build_ground() -> MeshInstance3D:
 	return ground
 
 
+## Flat collision slab under the whole court (plus a margin) so kyykkä and
+## karttu RigidBody3D props have something to rest on.
+func _build_ground_collision(hw: float, hl: float) -> StaticBody3D:
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(
+		court_width + 2.0 * ground_margin,
+		ground_thickness,
+		court_length + 2.0 * ground_margin
+	)
+
+	var collision := CollisionShape3D.new()
+	collision.shape = shape
+
+	var body := StaticBody3D.new()
+	body.name = "GroundBody"
+	body.position.y = -ground_thickness / 2.0
+	body.add_child(collision)
+	return body
+
+
 ## Boundary rectangle plus the two pesä front lines (the inner edge of each
 ## playing square, at pesa_size in from each end).
-func _build_lines() -> MeshInstance3D:
+func _build_lines(hw: float, hl: float, near_pesa_z: float, far_pesa_z: float) -> MeshInstance3D:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-
-	var hw := court_width / 2.0
-	var hl := court_length / 2.0
 
 	_add_segment(st, Vector3(-hw, 0, -hl), Vector3(-hw, 0, hl))  # left side
 	_add_segment(st, Vector3(hw, 0, -hl), Vector3(hw, 0, hl))    # right side
 	_add_segment(st, Vector3(-hw, 0, -hl), Vector3(hw, 0, -hl))  # near end
 	_add_segment(st, Vector3(-hw, 0, hl), Vector3(hw, 0, hl))    # far end
-
-	var near_pesa_z := -hl + pesa_size
-	var far_pesa_z := hl - pesa_size
 	_add_segment(st, Vector3(-hw, 0, near_pesa_z), Vector3(hw, 0, near_pesa_z))
 	_add_segment(st, Vector3(-hw, 0, far_pesa_z), Vector3(hw, 0, far_pesa_z))
 
@@ -60,6 +85,15 @@ func _build_lines() -> MeshInstance3D:
 	lines.material_override = mat
 	lines.position.y = 0.01  # avoid z-fighting with the ground
 	return lines
+
+
+func _build_pesa_view(z: float) -> PesaView:
+	var view := PesaView.new()
+	view.name = "PesaView"
+	view.kyykka_scene = preload("res://scenes/kyykka.tscn")
+	view.usable_width = court_width - 2.0 * pesa_side_margin
+	view.position = Vector3(0, 0, z)
+	return view
 
 
 func _add_segment(st: SurfaceTool, from: Vector3, to: Vector3) -> void:

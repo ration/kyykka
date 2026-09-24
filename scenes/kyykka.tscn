@@ -1,0 +1,22 @@
+[gd_scene format=3]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_jcnqi"]
+albedo_color = Color(0.45, 0.31, 0.19, 1)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_vm6w4"]
+top_radius = 0.035
+bottom_radius = 0.035
+height = 0.1
+
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_6xlp2"]
+height = 0.1
+radius = 0.035
+
+[node name="Kyykka" type="RigidBody3D" unique_id=2081694920]
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=966605946]
+material_override = SubResource("StandardMaterial3D_jcnqi")
+mesh = SubResource("CylinderMesh_vm6w4")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=2135053792]
+shape = SubResource("CylinderShape3D_6xlp2")

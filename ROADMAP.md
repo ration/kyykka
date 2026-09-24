@@ -18,11 +18,17 @@ conventions.
   - Half/match completion and winner determination
   - Unit tests (GUT, `tests/rules/`) for the above
 
-- [ ] **Phase 2 — Equipment & scene setup**
-  - Kyykkä piece scene (cylinder, 10 cm tall × 6–8 cm diameter, per rules)
-  - Karttu (bat) scene
-  - Place 20 pairs of kyykkä along each pesä's front line
-  - Wire equipment counts to Phase 1's data model
+- [x] **Phase 2 — Equipment & scene setup**
+  - Kyykkä piece scene (cylinder, 10 cm tall × ~7 cm diameter, per rules) —
+    `scenes/kyykka.tscn`
+  - Karttu (bat) scene — `scenes/karttu.tscn` (built, not yet placed on the
+    court: needs the throwing line, which isn't drawn yet)
+  - Place 20 pairs of kyykkä along each pesä's front line — `PesaView`
+    (`scripts/pesa_view.gd`), instantiated twice by `court.gd`
+  - Wire equipment counts to Phase 1's data model — `PesaView.piece_count`
+    defaults to `KyykkaMatch.DEFAULT_KYYKKA_PAIRS * 2`
+  - Also added ground collision (`court.gd`'s `GroundBody`), needed for
+    any of the above to physically rest on the court
 
 - [ ] **Phase 3 — Throwing mechanics**
   - Aiming input (direction + power)

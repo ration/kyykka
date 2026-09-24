@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-This is an early-stage Godot 4 project, now 3D. The main scene renders the base court (ground plane + boundary/pesä lines), and a standalone rules engine (`scripts/rules/`, no visuals) models teams, throws, and scoring — no kyykkä pieces, physical throwing, or UI wiring yet.
+This is an early-stage Godot 4 project, now 3D. The main scene renders the base court (ground + collision, boundary/pesä lines) with kyykkä pieces placed in both pesä squares, and a standalone rules engine (`scripts/rules/`, no visuals) models teams, throws, and scoring — no physical throwing (aiming/hitting) or UI wiring yet.
 
 The full game rules — field/square layout, kyykkä and karttu equipment, turn structure, and the plus/minus point scoring system — are documented in `README.md`. Read it before implementing any game logic: correctly modeling those rules (two opposing squares, alternating throws, pieces knocked out vs. left standing, two-half matches with sides swapped) is the core of this project.
 
@@ -15,9 +15,16 @@ The full game rules — field/square layout, kyykkä and karttu equipment, turn 
 - Godot **4.7**, GDScript (no C# / .NET module involved), **3D** (`Node3D`/`Camera3D`/etc., not the 2D API).
 - Rendering method is set to `gl_compatibility` in `project.godot` for broad hardware compatibility rather than `forward_plus`. Change this deliberately (and check it still runs) if a feature requires the Forward+ renderer.
 
-## Court
+## Court and equipment
 
-`scripts/court.gd` (attached to the `Court` root of `scenes/court.tscn`) procedurally builds the ground plane and court lines at runtime rather than storing them as static scene geometry, so the dimensions live in one place (the script's `@export` fields) instead of being baked into hand-placed meshes. Current layout, per README.md: a 5×20 m court with a 5×5 m pesä square at each end (so only the two pesä "front lines" need drawing in addition to the outer boundary — the pesä's other three edges coincide with the court boundary). Throwing lines are not drawn yet since their exact placement wasn't pinned down from the rule sources. When adding kyykkä pieces or throwing lines, extend this script (or add sibling scenes) rather than hand-authoring geometry in the `.tscn` file, to keep dimensions consistent and adjustable.
+`scripts/court.gd` (attached to the `Court` root of `scenes/court.tscn`) procedurally builds the ground plane, ground collision, and court lines at runtime rather than storing them as static scene geometry, so the dimensions live in one place (the script's `@export` fields) instead of being baked into hand-placed meshes. Current layout, per README.md: a 5×20 m court with a 5×5 m pesä square at each end (so only the two pesä "front lines" need drawing in addition to the outer boundary — the pesä's other three edges coincide with the court boundary). Throwing lines are not drawn yet since their exact placement wasn't pinned down from the rule sources. When adding throwing lines, extend this script rather than hand-authoring geometry in the `.tscn` file, to keep dimensions consistent and adjustable.
+
+`scripts/court.gd` also gives the ground a `StaticBody3D`/`CollisionShape3D` (a flat box, `ground_margin` wider than the drawn court on each side) so `RigidBody3D` props have something to land on, and instantiates two `PesaView`s (see below) at the near/far pesä front lines.
+
+Equipment:
+- `scenes/kyykka.tscn` — one kyykkä: `RigidBody3D` + `CylinderMesh`/`CylinderShape3D` (10 cm tall, ~7 cm diameter, per README.md). No script; it's a passive prop until Phase 3 gives pieces behavior.
+- `scenes/karttu.tscn` — one karttu (throwing bat): same pattern, 85 cm long, lying on its side. Built but **not yet placed** anywhere in `court.tscn` — its resting spot depends on the throwing line, which isn't drawn yet either.
+- `scripts/pesa_view.gd` (`class_name PesaView`) — spawns `piece_count` kyykkä as pairs evenly spaced along local X at local Z = 0; `court.gd` positions one instance at each pesä's front line. `piece_count` defaults to `KyykkaMatch.DEFAULT_KYYKKA_PAIRS * 2` (see Rules engine below) so the visual count stays wired to the rules engine's constant instead of being a second hardcoded 40. `PesaView` only sets up the *initial* layout — it doesn't yet react to a `Pesa`'s state changing over time (removing pieces as they're knocked out); that needs Phase 3's `ThrowResult`s feeding back into the scene, which is Phase 4's job.
 
 ## Rules engine
 
@@ -47,9 +54,9 @@ Run via `make` (see `make help`); each target just wraps a `tools/*.sh` script o
 ## Project structure
 
 - `project.godot` — engine config; `run/main_scene` points at `scenes/court.tscn`; `[editor_plugins]` enables GUT.
-- `scenes/` — `.tscn` scene files. `court.tscn` holds the camera, sun light, and world environment; the court geometry itself is generated at runtime by `court.gd` (see Court above).
-- `scripts/` — GDScript files. `court.gd` is attached to the `court.tscn` root. `scripts/rules/` is the rules engine (see Rules engine above).
-- `tests/rules/` — GUT tests for `scripts/rules/`, one `test_*.gd` file per rules class.
+- `scenes/` — `.tscn` scene files. `court.tscn` holds the camera, sun light, and world environment; the court geometry itself is generated at runtime by `court.gd` (see Court and equipment above). `kyykka.tscn`/`karttu.tscn` are the equipment props.
+- `scripts/` — GDScript files. `court.gd` is attached to the `court.tscn` root; `pesa_view.gd` is instantiated by it at runtime (no `.tscn` of its own — see Court and equipment above). `scripts/rules/` is the rules engine (see Rules engine above).
+- `tests/rules/`, `tests/scenes/` — GUT tests, mirroring the `scripts/` layout: one `test_*.gd` file per class.
 - `addons/gut/` — vendored GUT addon (see Commands above); third-party code, not maintained here.
 - `assets/` — art/audio/etc. (currently empty).
 - `Makefile` — common command entry points (see Commands above).
