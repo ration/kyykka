@@ -31,8 +31,9 @@ conventions.
     any of the above to physically rest on the court
 
 - [x] **Phase 3 — Throwing mechanics**
-  - Aiming input (direction + power) — `ThrowController`: mouse-look yaw
-    cone + hold-to-charge power
+  - Aiming input — `ThrowController`: mouse-look yaw cone + a swing-timing
+    gauge (release near the middle for a clean, flush hit; power is fixed
+    for now, a later feature)
   - Physics-based throw (RigidBody3D karttu vs. kyykkä)
   - Detect "knocked fully out of pesä" vs. "still inside/on a line" —
     `PieceClassifier` (pure geometry) + `PesaScorer` (bridges to rules)
