@@ -24,8 +24,8 @@ signal throw_settled
 @export var mouse_sensitivity: float = 0.2  ## degrees per pixel of mouse motion
 
 @export var swing_seconds: float = 1.0  ## time for the gauge to sweep 0 -> 180
-@export var throw_speed: float = 14.8  ## fixed for now; variable power is a later feature
-@export var launch_elevation_degrees: float = 15.0  ## default/neutral aim, reset each turn
+@export var throw_speed: float = 16.0  ## fixed for now; variable power is a later feature
+@export var launch_elevation_degrees: float = 13.0  ## default/neutral aim, reset each turn
 @export var min_elevation_degrees: float = -10.0  ## how far below flat you can aim, for shorter throws that land nearer the middle of the pesä rather than always sailing deep
 @export var max_elevation_degrees: float = 45.0  ## how far up you can aim
 
