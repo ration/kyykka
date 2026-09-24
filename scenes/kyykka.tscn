@@ -1,5 +1,7 @@
 [gd_scene format=3]
 
+[ext_resource type="Script" path="res://scripts/kyykka.gd" id="1_kyykka"]
+
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_jcnqi"]
 albedo_color = Color(0.45, 0.31, 0.19, 1)
 
@@ -15,6 +17,7 @@ size = Vector3(0.0495, 0.1, 0.0495)
 friction = 0.9
 
 [node name="Kyykka" type="RigidBody3D" unique_id=2081694920]
+script = ExtResource("1_kyykka")
 mass = 0.23
 physics_material_override = SubResource("PhysicsMaterial_kyykka")
 linear_damp = 1.0
