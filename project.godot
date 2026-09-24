@@ -18,10 +18,6 @@ config/features=PackedStringArray("4.7", "Forward Plus")
 
 enabled=PackedStringArray("res://addons/gut/plugin.cfg")
 
-[physics]
-
-common/physics_ticks_per_second=240
-
 [rendering]
 
 renderer/rendering_method="gl_compatibility"
