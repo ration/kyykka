@@ -1,0 +1,26 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/court.gd" id="1_lpavh"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_g3shg"]
+
+[sub_resource type="Sky" id="Sky_i1kge"]
+sky_material = SubResource("ProceduralSkyMaterial_g3shg")
+
+[sub_resource type="Environment" id="Environment_ogvvj"]
+background_mode = 2
+sky = SubResource("Sky_i1kge")
+
+[node name="Court" type="Node3D" unique_id=1174047038]
+script = ExtResource("1_lpavh")
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=975666513]
+transform = Transform3D(1, 0, 0, 0, 0.7556891, 0.65493053, 0, -0.65493053, 0.7556891, 0, 13, 15)
+current = true
+
+[node name="Sun" type="DirectionalLight3D" parent="." unique_id=580030397]
+transform = Transform3D(0.8660254, 0.38302222, -0.32139382, 0, 0.64278764, 0.76604444, 0.5, -0.66341394, 0.5566704, 0, 10, 0)
+shadow_enabled = true
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=511436300]
+environment = SubResource("Environment_ogvvj")
