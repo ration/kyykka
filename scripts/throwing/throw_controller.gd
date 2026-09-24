@@ -19,12 +19,14 @@ signal throw_settled
 @export var camera: Camera3D
 @export var enabled: bool = true  ## set false to stop accepting input once the match is over
 
-@export var aim_cone_degrees: float = 25.0
+@export var aim_cone_degrees: float = 25.0  ## how far left/right of forward you can aim
 @export var mouse_sensitivity: float = 0.2  ## degrees per pixel of mouse motion
 
 @export var swing_seconds: float = 1.0  ## time for the gauge to sweep 0 -> 180
 @export var throw_speed: float = 17.0  ## fixed for now; variable power is a later feature
-@export var launch_elevation_degrees: float = 15.0
+@export var launch_elevation_degrees: float = 15.0  ## default/neutral aim, reset each turn
+@export var min_elevation_degrees: float = 2.0  ## just above flat, so an aimed-down throw doesn't faceplant at your feet
+@export var max_elevation_degrees: float = 45.0  ## how far up you can aim
 
 @export var camera_height: float = 1.6
 @export var camera_back_offset: float = 1.2
@@ -36,6 +38,7 @@ signal throw_settled
 var watch_root: Node3D  ## subtree whose RigidBody3Ds must settle (the current target PesaView); set via configure()
 
 var _yaw_degrees: float = 0.0
+var _elevation_degrees: float = 15.0  ## current up/down aim; reset to launch_elevation_degrees in configure()
 var _forward_direction: Vector3 = Vector3(0, 0, 1)  ## yaw=0 aim direction; set via configure()
 var _karttu: RigidBody3D
 var _busy: bool = false
@@ -87,6 +90,7 @@ func configure(p_position: Vector3, p_forward: Vector3, p_watch_root: Node3D) ->
 	_forward_direction = p_forward.normalized()
 	watch_root = p_watch_root
 	_yaw_degrees = 0.0
+	_elevation_degrees = launch_elevation_degrees
 	_reset_karttu()
 	_update_camera()
 
@@ -111,6 +115,14 @@ func _unhandled_input(event: InputEvent) -> void:
 			_yaw_degrees - event.relative.x * mouse_sensitivity,
 			-aim_cone_degrees,
 			aim_cone_degrees
+		)
+		# relative.y is positive moving down the screen, so subtracting it
+		# means moving the mouse up raises the aim, same convention as a
+		# typical mouse-look.
+		_elevation_degrees = clampf(
+			_elevation_degrees - event.relative.y * mouse_sensitivity,
+			min_elevation_degrees,
+			max_elevation_degrees
 		)
 		_update_camera()
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
@@ -166,24 +178,32 @@ func _physics_process(delta: float) -> void:
 	_karttu.global_transform = t
 
 
+## Horizontal-only facing (yaw applied to _forward_direction). Used as the
+## camera's stand-off direction and as the base for _look_direction().
 func _aim_direction() -> Vector3:
 	return _forward_direction.rotated(Vector3.UP, deg_to_rad(_yaw_degrees))
 
 
+## Full 3D aim (yaw + elevation) — where the karttu actually gets thrown
+## and what the camera looks toward.
+func _look_direction() -> Vector3:
+	var horizontal := _aim_direction()
+	var elevation := deg_to_rad(_elevation_degrees)
+	return (horizontal * cos(elevation) + Vector3.UP * sin(elevation)).normalized()
+
+
 func _update_camera() -> void:
-	var dir := _aim_direction()
-	camera.global_position = global_position + Vector3.UP * camera_height - dir * camera_back_offset
-	camera.look_at(camera.global_position + dir, Vector3.UP)
+	var horizontal := _aim_direction()
+	camera.global_position = global_position + Vector3.UP * camera_height - horizontal * camera_back_offset
+	camera.look_at(camera.global_position + _look_direction(), Vector3.UP)
 
 
 func _throw(gauge_degrees: float) -> void:
 	_busy = true
-	var dir := _aim_direction()
-	var elevation := deg_to_rad(launch_elevation_degrees)
-	var launch_dir := (dir * cos(elevation) + Vector3.UP * sin(elevation)).normalized()
+	var launch_dir := _look_direction()
 
 	var gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
-	var flight := SpinCalculator.time_of_flight(throw_speed, launch_elevation_degrees, gravity)
+	var flight := SpinCalculator.time_of_flight(throw_speed, _elevation_degrees, gravity)
 	var rate := SpinCalculator.spin_rate(gauge_degrees, flight)
 
 	_karttu.freeze = false
