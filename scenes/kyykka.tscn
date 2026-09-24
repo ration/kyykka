@@ -8,9 +8,8 @@ top_radius = 0.035
 bottom_radius = 0.035
 height = 0.1
 
-[sub_resource type="CylinderShape3D" id="CylinderShape3D_6xlp2"]
-height = 0.1
-radius = 0.035
+[sub_resource type="BoxShape3D" id="BoxShape3D_6xlp2"]
+size = Vector3(0.0495, 0.1, 0.0495)
 
 [node name="Kyykka" type="RigidBody3D" unique_id=2081694920]
 mass = 0.23
@@ -22,4 +21,4 @@ material_override = SubResource("StandardMaterial3D_jcnqi")
 mesh = SubResource("CylinderMesh_vm6w4")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=2135053792]
-shape = SubResource("CylinderShape3D_6xlp2")
+shape = SubResource("BoxShape3D_6xlp2")
