@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-This is an early-stage Godot 4 project, now 3D. The main scene runs a full hot-seat match: mouse-aim/throw a karttu, turns alternate between two teams, halves reset the kyykkä and the match ends with a winner — all narrated to console (no HUD yet, no AI/real multiplayer yet — Phases 5-7). `scripts/rules/` remains the visual-independent source of truth for scoring and turn order.
+This is an early-stage Godot 4 project, now 3D. The game boots into a main menu; Start Match loads the court, which runs a full hot-seat match: mouse-aim/throw a karttu, turns alternate between two teams, halves reset the kyykkä and the match ends with a winner. A HUD shows running score/turn/karttu/kyykkä state, Esc opens a pause menu, and a results screen replaces the console-only end-of-match. No AI or real multiplayer yet — Phases 6-7. `scripts/rules/` remains the visual-independent source of truth for scoring and turn order.
 
 The full game rules — field/square layout, kyykkä and karttu equipment, turn structure, and the plus/minus point scoring system — are documented in `README.md`. Read it before implementing any game logic: correctly modeling those rules (two opposing squares, alternating throws, pieces knocked out vs. left standing, two-half matches with sides swapped) is the core of this project.
 
@@ -32,7 +32,21 @@ Equipment:
 - `_start_half()` calls `kyykka_match.start_half()`, frees any existing `PesaView`s and builds fresh ones (so kyykkä counts reset every half), and builds matching `PesaScorer`s. Team A defends the near pesä and attacks the far one; team B the reverse.
 - On `ThrowController.throw_settled`: scores the just-attacked side's `PesaScorer` into the current `Attack`, prints status, then advances the turn via `Half.next_attack()` (see Rules engine below) — or, if the half just finished, starts the next half or, if the match is finished, prints the final result and sets `thrower.enabled = false`.
 - Reconfigures the single `ThrowController` for whichever side's turn it is via `configure(position, forward, watch_root)` rather than using two separate throwers — this **is** the hot-seat: same controls, repositioned. "Camera follows current thrower" (a ROADMAP Phase 4 bullet) falls out for free from this, since the camera is already derived from the thrower's transform.
+- Emits `half_started(half_number)` / `turn_changed` / `attack_scored` / `match_finished` for the UI to subscribe to (see UI below), rather than reaching into UI nodes itself — the console `print`s are kept for headless debugging alongside the signals.
 - Verified end-to-end with a throwaway headless script driving forced throws through a full 2-half match: turns alternate correctly, halves reset kyykkä counts, the match finishes and disables the thrower.
+
+## UI (Phase 5 — see ROADMAP.md)
+
+The game boots into `scenes/main_menu.tscn` (the project's `run/main_scene`), not straight into the court. Court still runs the match; a HUD, pause menu, and results screen overlay it. All UI is built in code in `_ready()` rather than as `.tscn` files (except `main_menu.tscn`, which needs to exist as a scene to be the boot target) — matches how `court.gd` and `throw_controller.gd`'s swing gauge build their geometry, so dimensions live in one place instead of being baked into hand-edited scene files.
+
+- `scripts/ui/main_menu.gd` (attached to `scenes/main_menu.tscn`) — Start Match / Quit. Start calls `change_scene_to_file("res://scenes/court.tscn")`. `_ready()` restores mouse-visible and `paused = false` in case we came back here from a paused/captured match.
+- `scripts/ui/hud.gd` (`class_name HUD`) — running score, current half, whose turn, karttu remaining, kyykkä in-square/on-line/removed for the target pesä. Instantiated by `court.gd`, handed a `MatchController` reference, and subscribes to that controller's `half_started`/`turn_changed`/`attack_scored`/`match_finished` signals. Holds no game state — every notification just triggers a full `_refresh()` that re-reads from the `MatchController`.
+- `scripts/ui/pause_menu.gd` (`class_name PauseMenu`) — Esc-toggled overlay: Resume / Main Menu / Quit. Runs with `process_mode = PROCESS_MODE_ALWAYS` so it can un-pause itself while the tree is paused; toggles `Input.mouse_mode` between `CAPTURED` and `VISIBLE` on open/close so its buttons are actually clickable (the `ThrowController` captures the mouse for aim). `court.gd` sets `enabled = false` on `match_finished` so the results screen (below) owns exits from there.
+- `scripts/ui/results_screen.gd` (`class_name ResultsScreen`) — hidden until `MatchController.match_finished`; on that signal, shows final per-team totals plus the winner (or "Tie") and Rematch / Main Menu / Quit buttons. Rematch reloads `court.tscn`; Main Menu goes back to `main_menu.tscn`.
+
+`court.gd` wires all three overlays: it constructs the `MatchController`, then adds a `PauseMenu`, `HUD`, and `ResultsScreen` as siblings, handing the last two a reference to the controller and connecting `match_finished` to disable the pause menu.
+
+**HUD scoring can't just call `KyykkaMatch.total_score()` mid-match (found and fixed once, worth knowing about):** `total_score()` sums each half via `Half.score_for()` → `Attack.score()`, and `Attack.score()` asserts the attack is finished — a proper final score isn't well-defined until then (penalties for kyykkä still standing and the unused-karttu bonus both depend on end-state). Calling it from the HUD's `_refresh()` on `attack_scored` crashed on the very first throw. Fixed by computing the display total in the HUD itself: finished attacks contribute `score()`, in-progress ones contribute their positive `pesa.removed` tally, so the scoreboard ticks up live without needing rules-engine changes.
 
 ## Throwing
 
@@ -104,9 +118,9 @@ Run via `make` (see `make help`); each target just wraps a `tools/*.sh` script o
 
 ## Project structure
 
-- `project.godot` — engine config; `run/main_scene` points at `scenes/court.tscn`; `[editor_plugins]` enables GUT.
-- `scenes/` — `.tscn` scene files. `court.tscn` holds the camera, sun light, and world environment; the court geometry itself is generated at runtime by `court.gd` (see Court and equipment above). `kyykka.tscn`/`karttu.tscn` are the equipment props.
-- `scripts/` — GDScript files. `court.gd` is attached to the `court.tscn` root and instantiates `match_controller.gd`, which in turn instantiates `pesa_view.gd`/`scripts/throwing/*` at runtime (none of these have a `.tscn` of their own — see Court and equipment / Match flow / Throwing above). `kyykka.gd`/`karttu.gd` are attached directly to their respective `.tscn` equipment files and both `extends` the shared `settling_body.gd` (`class_name SettlingBody`) for the "force-settle if stuck" watchdog — see the corner-balance note under Throwing. `scripts/rules/` is the rules engine (see Rules engine above).
+- `project.godot` — engine config; `run/main_scene` points at `scenes/main_menu.tscn` (the game boots into the menu, which then loads `court.tscn`); `[editor_plugins]` enables GUT.
+- `scenes/` — `.tscn` scene files. `main_menu.tscn` is a tiny scene whose only job is to be the boot target for `scripts/ui/main_menu.gd`. `court.tscn` holds the camera, sun light, and world environment; the court geometry itself is generated at runtime by `court.gd` (see Court and equipment above). `kyykka.tscn`/`karttu.tscn` are the equipment props.
+- `scripts/` — GDScript files. `court.gd` is attached to the `court.tscn` root and instantiates `match_controller.gd` plus the UI overlays (`scripts/ui/hud.gd`, `scripts/ui/pause_menu.gd`, `scripts/ui/results_screen.gd`); `match_controller.gd` in turn instantiates `pesa_view.gd`/`scripts/throwing/*` at runtime (none of these have a `.tscn` of their own — see Court and equipment / Match flow / UI / Throwing above). `kyykka.gd`/`karttu.gd` are attached directly to their respective `.tscn` equipment files and both `extends` the shared `settling_body.gd` (`class_name SettlingBody`) for the "force-settle if stuck" watchdog — see the corner-balance note under Throwing. `scripts/rules/` is the rules engine (see Rules engine above). `scripts/ui/` is the Phase 5 UI (see UI above).
 - `tests/rules/`, `tests/scenes/`, `tests/throwing/` — GUT tests, mirroring the `scripts/` layout: one `test_*.gd` file per class.
 - `addons/gut/` — vendored GUT addon (see Commands above); third-party code, not maintained here.
 - `assets/` — art/audio/etc. (currently empty).

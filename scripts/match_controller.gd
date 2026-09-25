@@ -9,6 +9,14 @@ extends Node3D
 ## Minimal hot-seat for now: the same player/controls handle both teams'
 ## turns, repositioned to face whichever pesä they're attacking. Real
 ## per-player polish is Phase 7's job; AI is Phase 6's — see ROADMAP.md.
+##
+## Signals let the HUD (and results screen) subscribe to match-state
+## changes instead of this node poking UI directly.
+
+signal half_started(half_number: int)
+signal turn_changed
+signal attack_scored
+signal match_finished
 
 @export var court_width: float
 @export var pesa_size: float
@@ -64,6 +72,7 @@ func _start_half() -> void:
 	current_attack = current_half.attack_by_team_a
 
 	print("-- Half %d begins --" % kyykka_match.halves.size())
+	half_started.emit(kyykka_match.halves.size())
 
 
 func _build_pesa_view(z: float, depth_direction: float) -> PesaView:
@@ -84,6 +93,7 @@ func _configure_thrower_for_current_attack() -> void:
 	else:
 		thrower.configure(Vector3(0, 0, far_pesa_z), Vector3(0, 0, -1), near_pesa_view)
 	print("%s's turn" % current_attack.attacking_team.team_name)
+	turn_changed.emit()
 
 
 func _on_throw_settled() -> void:
@@ -97,6 +107,7 @@ func _on_throw_settled() -> void:
 		current_attack.is_finished(),
 		current_attack.score() if current_attack.is_finished() else "n/a",
 	])
+	attack_scored.emit()
 
 	_advance_turn()
 
@@ -124,3 +135,4 @@ func _end_match() -> void:
 		team_b.team_name, kyykka_match.total_score(team_b),
 		("Winner: %s" % winner.team_name) if winner else "Tie",
 	])
+	match_finished.emit()

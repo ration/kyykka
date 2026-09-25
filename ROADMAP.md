@@ -59,9 +59,21 @@ conventions.
     2-half match (turns alternate, halves reset kyykkä counts, match
     finishes, thrower disables)
 
-- [ ] **Phase 5 — UI**
-  - HUD (score, whose turn, karttu remaining, kyykkä remaining)
-  - Main menu, pause menu, results/winner screen
+- [x] **Phase 5 — UI**
+  - HUD — `scripts/ui/hud.gd`: running score, current half, whose turn,
+    karttu remaining, kyykkä in-square/on-line/removed. Subscribes to
+    `MatchController.half_started`/`turn_changed`/`attack_scored`/
+    `match_finished`; the HUD holds no game state of its own.
+  - Main menu — `scenes/main_menu.tscn` + `scripts/ui/main_menu.gd`:
+    Start Match / Quit; set as `run/main_scene` so the game boots here
+    instead of jumping straight into the court.
+  - Pause menu — `scripts/ui/pause_menu.gd`: Esc-toggled overlay
+    (`process_mode = ALWAYS`, pauses the tree, releases mouse capture
+    while open); Resume / Main Menu / Quit. Silences itself once the
+    match ends so the results screen owns the exit flow.
+  - Results/winner screen — `scripts/ui/results_screen.gd`: appears on
+    `MatchController.match_finished` with final scores + winner (or Tie)
+    and Rematch / Main Menu / Quit.
 
 - [ ] **Phase 6 — AI opponent**
   - Throw targeting with tunable accuracy for difficulty levels

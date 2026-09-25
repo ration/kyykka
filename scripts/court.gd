@@ -40,6 +40,23 @@ func _ready() -> void:
 	match_controller.camera = $Camera3D
 	add_child(match_controller)
 
+	# Pause menu handles Esc during the match; the results screen owns
+	# exits once the match ends, so mute the pause menu at that point.
+	var pause_menu := PauseMenu.new()
+	pause_menu.name = "PauseMenu"
+	add_child(pause_menu)
+	match_controller.match_finished.connect(func() -> void: pause_menu.enabled = false)
+
+	var hud := HUD.new()
+	hud.name = "HUD"
+	hud.match_controller = match_controller
+	add_child(hud)
+
+	var results := ResultsScreen.new()
+	results.name = "ResultsScreen"
+	results.match_controller = match_controller
+	add_child(results)
+
 
 func _build_ground() -> MeshInstance3D:
 	var plane := PlaneMesh.new()
