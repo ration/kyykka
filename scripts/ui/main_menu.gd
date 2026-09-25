@@ -46,7 +46,8 @@ func _build_ui() -> void:
 	subtitle.add_theme_color_override("font_color", Color(0.75, 0.75, 0.75))
 	box.add_child(subtitle)
 
-	box.add_child(_menu_button("Start Match", _start_match))
+	box.add_child(_menu_button("Start Summer Match", _start_summer))
+	box.add_child(_menu_button("Start Winter Match", _start_winter))
 	box.add_child(_menu_button("Quit", _quit_game))
 
 
@@ -58,7 +59,13 @@ func _menu_button(text: String, callback: Callable) -> Button:
 	return button
 
 
-func _start_match() -> void:
+func _start_summer() -> void:
+	GameMode.current = GameMode.Mode.SUMMER
+	get_tree().change_scene_to_file(COURT_SCENE)
+
+
+func _start_winter() -> void:
+	GameMode.current = GameMode.Mode.WINTER
 	get_tree().change_scene_to_file(COURT_SCENE)
 
 

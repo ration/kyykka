@@ -9,6 +9,13 @@ conventions.
   Godot project setup, build tooling (`Makefile`, `tools/*.sh`), base 3D
   court (ground + boundary/pesä lines).
 
+- [x] **Bonus — Summer / Winter modes**
+  `GameMode` autoload picked from the main menu drives court ground
+  texture (procedural noise; sandy in summer, snow in winter) and karttu
+  physics (winter drops friction 5x and roughly halves landed damping so
+  the karttu keeps sliding across the pesä after landing). HUD shows
+  the active season.
+
 - [x] **Phase 1 — Rules engine (no visuals)**
   - Data model: `Team`, `Pesa`, `ThrowResult`, `Attack`, `Half`, `KyykkaMatch`
     (`scripts/rules/`)

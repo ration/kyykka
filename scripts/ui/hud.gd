@@ -45,6 +45,9 @@ func _build_ui() -> void:
 	_score_label = _label("")
 	box.add_child(_score_label)
 
+	var mode_label := _label("Mode: %s" % GameMode.mode_name())
+	box.add_child(mode_label)
+
 	var top_center := _panel()
 	top_center.position = Vector2(0, margin)
 	top_center.anchor_left = 0.5

@@ -61,6 +61,14 @@ var _has_held_velocity: bool = false
 
 func _ready() -> void:
 	super._ready()
+	# Mode-dependent tuning: winter drops friction and landed damping so
+	# the karttu keeps sliding across the pesä after landing (see
+	# scripts/game_mode.gd). Applied here rather than at the .tscn level
+	# so main-menu mode choice takes effect without a scene-per-mode.
+	physics_material_override.friction = GameMode.karttu_friction()
+	landed_linear_damp = GameMode.karttu_landed_linear_damp()
+	landed_angular_damp = GameMode.karttu_landed_angular_damp()
+
 	contact_monitor = true
 	max_contacts_reported = 4
 	# COMBINE (the default) adds the project's default_linear_damp (0.1)

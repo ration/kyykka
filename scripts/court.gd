@@ -13,7 +13,9 @@ extends Node3D
 @export var pesa_side_margin: float = 0.25  ## gap between kyykkä pairs and the pesä's side lines
 @export var line_width: float = 0.08    ## metres
 @export var line_color: Color = Color.WHITE
-@export var ground_color: Color = Color(0.76, 0.66, 0.47)  ## sand/gravel
+@export var ground_texture_size: int = 128  ## pixels per side of the procedural ground noise; higher = crisper, slower to build
+@export var ground_texture_frequency: float = 0.04  ## FastNoiseLite frequency; higher = smaller mottling
+@export var ground_texture_tiling: float = 4.0  ## how many times the texture repeats across the court
 @export var ground_margin: float = 5.0  ## collision extends this far past the drawn court on each side
 @export var ground_thickness: float = 0.2
 
@@ -63,13 +65,36 @@ func _build_ground() -> MeshInstance3D:
 	plane.size = Vector2(court_width, court_length)
 
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = ground_color
+	mat.albedo_texture = _build_ground_texture()
+	mat.uv1_scale = Vector3(ground_texture_tiling, ground_texture_tiling, 1)
 
 	var ground := MeshInstance3D.new()
 	ground.name = "Ground"
 	ground.mesh = plane
 	ground.material_override = mat
 	return ground
+
+
+## Procedural noise texture whose two-colour ramp is chosen by GameMode
+## (sandy tones in summer, snow in winter — see scripts/game_mode.gd).
+## Built pixel-by-pixel via FastNoiseLite into an ImageTexture rather than
+## via NoiseTexture2D so it's ready synchronously here (NoiseTexture2D
+## generates in a background thread and might leave the first frame
+## untextured), and small enough (128 px default) that the one-off cost
+## is negligible.
+func _build_ground_texture() -> ImageTexture:
+	var noise := FastNoiseLite.new()
+	noise.noise_type = FastNoiseLite.TYPE_PERLIN
+	noise.frequency = ground_texture_frequency
+	var low_color: Color = GameMode.ground_low_color()
+	var high_color: Color = GameMode.ground_high_color()
+
+	var image := Image.create(ground_texture_size, ground_texture_size, false, Image.FORMAT_RGB8)
+	for y in range(ground_texture_size):
+		for x in range(ground_texture_size):
+			var n := noise.get_noise_2d(float(x), float(y)) * 0.5 + 0.5
+			image.set_pixel(x, y, low_color.lerp(high_color, n))
+	return ImageTexture.create_from_image(image)
 
 
 ## Flat collision slab under the whole court (plus a margin) so kyykkä and
