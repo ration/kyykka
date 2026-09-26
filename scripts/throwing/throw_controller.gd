@@ -235,7 +235,9 @@ func _await_settle() -> void:
 	while elapsed < settle_timeout_seconds:
 		await get_tree().physics_frame
 		elapsed += step
-		if bodies.all(func(b: RigidBody3D) -> bool: return b.sleeping):
+		# Frozen counts as settled: SettlingBody freezes a body that fell
+		# off the edge of the ground, and a frozen body needn't report sleeping.
+		if bodies.all(func(b: RigidBody3D) -> bool: return b.sleeping or b.freeze):
 			return
 
 

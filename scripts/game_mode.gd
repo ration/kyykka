@@ -5,8 +5,8 @@ extends Node
 ## channel through change_scene_to_file().
 ##
 ## Summer keeps the current sand-court defaults; winter uses a snow-lit
-## palette and lowers karttu friction/landed-damping so the karttu keeps
-## sliding across the pesä after landing (real winter kyykkä on ice).
+## palette and lowers karttu friction so the karttu keeps sliding across
+## the pesä after landing (real winter kyykkä on ice).
 ## Only the karttu is affected — the kyykkä pieces still use the sturdy
 ## damping they need to stay upright and settle without rocking on
 ## BoxShape3D corners (see the corner-balance note in CLAUDE.md).
@@ -23,21 +23,27 @@ func mode_name() -> String:
 # Karttu tuning ---------------------------------------------------------------
 # Summer values are the current tuned defaults from CLAUDE.md's karttu note
 # (friction 0.1, landed_linear_damp 2.0, landed_angular_damp 3.0). Winter
-# drops friction 5x and roughly halves landed damping so a landed karttu
-# slides much further on the "ice"; still short enough that the karttu
-# settles within settle_timeout_seconds (5s), verified via
-# tools/simulate_throws.gd.
+# drops friction 5x so a landed karttu slides further on the "ice": it
+# comes to rest ~13 m out (just past the pesä's 10 m back line) instead of
+# summer's ~11.7 m. Measured with a karttu slide sweep:
+# - Landed linear damping was only lowered a little (2.0 -> 1.8). Halving
+#   it (0.7) slid the karttu off the end of the ground on every throw, and
+#   even 1.3 did on 9 of 10.
+# - Landed angular damping is *raised* (3.0 -> 5.0): on near-frictionless
+#   ground a stopped karttu kept turning slowly (~0.1-0.25 rad/s), above
+#   the sleep threshold but too slowly for SettlingBody's watchdog, and hit
+#   settle_timeout_seconds (5s) on most throws. At 5.0 none did.
 
 func karttu_friction() -> float:
 	return 0.02 if current == Mode.WINTER else 0.1
 
 
 func karttu_landed_linear_damp() -> float:
-	return 0.7 if current == Mode.WINTER else 2.0
+	return 1.8 if current == Mode.WINTER else 2.0
 
 
 func karttu_landed_angular_damp() -> float:
-	return 1.5 if current == Mode.WINTER else 3.0
+	return 5.0 if current == Mode.WINTER else 3.0
 
 
 # Ground appearance -----------------------------------------------------------

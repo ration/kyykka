@@ -12,8 +12,8 @@ conventions.
 - [x] **Bonus — Summer / Winter modes**
   `GameMode` autoload picked from the main menu drives court ground
   texture (procedural noise; sandy in summer, snow in winter) and karttu
-  physics (winter drops friction 5x and roughly halves landed damping so
-  the karttu keeps sliding across the pesä after landing). HUD shows
+  physics (winter drops friction 5x so the karttu keeps sliding across
+  the pesä after landing, stopping ~13 m out vs. summer's ~11.7 m). HUD shows
   the active season.
 
 - [x] **Phase 1 — Rules engine (no visuals)**
