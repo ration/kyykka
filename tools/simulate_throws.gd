@@ -7,7 +7,7 @@ extends SceneTree
 ## playtesting after every tweak.
 ##
 ## Usage:
-##   godot --headless --path . --script tools/simulate_throws.gd -- [count]
+##   godot --headless --path . --script tools/simulate_throws.gd -- [count] [summer|winter]
 ## (default count: 16, comfortably within one half's 10-karttu-per-side
 ## budget so turn/half rollover doesn't need special handling)
 ##
@@ -33,13 +33,23 @@ func _initialize() -> void:
 	var count := 16
 	if args.size() > 0:
 		count = int(args[0])
+	# Set before instantiating the court: court.gd and karttu.gd read the
+	# mode in their own _ready().
+	var game_mode := get_root().get_node("GameMode")
+	if args.size() > 1 and args[1].to_lower() == "winter":
+		game_mode.current = game_mode.Mode.WINTER
+	else:
+		game_mode.current = game_mode.Mode.SUMMER
+	print("mode: %s" % game_mode.mode_name())
 
-	var court := preload("res://scenes/court.tscn").instantiate()
+	# load(), not preload(): preload compiles court.gd/karttu.gd along with
+	# this script, before the GameMode autoload they reference is registered.
+	var court: Node = load("res://scenes/court.tscn").instantiate()
 	get_root().add_child(court)
 	await create_timer(0.3).timeout
 
-	var mc: MatchController = court.get_node("MatchController")
-	var thrower: ThrowController = mc.thrower
+	var mc = court.get_node("MatchController")
+	var thrower = mc.thrower
 
 	var contacts := 0
 	var scores := 0
@@ -53,11 +63,11 @@ func _initialize() -> void:
 			break
 
 		var gauge: float = lerp(10.0, 170.0, float(i) / maxf(count - 1, 1))
-		var attack := mc.current_attack
-		var target_view: PesaView = mc.far_pesa_view if attack == mc.current_half.attack_by_team_a else mc.near_pesa_view
-		var before_in_square := attack.pesa.in_square
-		var before_on_line := attack.pesa.on_line
-		var before_removed := attack.pesa.removed
+		var attack = mc.current_attack
+		var target_view = mc.far_pesa_view if attack == mc.current_half.attack_by_team_a else mc.near_pesa_view
+		var before_in_square = attack.pesa.in_square
+		var before_on_line = attack.pesa.on_line
+		var before_removed = attack.pesa.removed
 		var before_positions: Dictionary = {}
 		for piece in target_view.get_children():
 			before_positions[piece] = piece.global_position
@@ -78,7 +88,7 @@ func _initialize() -> void:
 				continue
 			max_displacement = maxf(max_displacement, piece.global_position.distance_to(before_positions[piece]))
 		var contacted := max_displacement > 0.05
-		var scored := (
+		var scored: bool = (
 			attack.pesa.in_square != before_in_square
 			or attack.pesa.on_line != before_on_line
 			or attack.pesa.removed != before_removed
@@ -124,7 +134,7 @@ func _initialize() -> void:
 	quit()
 
 
-func _outermost_standing(view: PesaView) -> Node3D:
+func _outermost_standing(view) -> Node3D:
 	var best: Node3D = null
 	for piece in view.get_children():
 		# Still upright (a toppled kyykkä's centre sits lower) and still
@@ -138,9 +148,9 @@ func _outermost_standing(view: PesaView) -> Node3D:
 
 ## Sets yaw and camera pitch so the look ray crosses aim_target_height
 ## exactly at `point`, i.e. what a player lining the crosshair up on it gets.
-func _aim_at(thrower: ThrowController, point: Vector3) -> void:
-	var offset := point - thrower.global_position
+func _aim_at(thrower, point: Vector3) -> void:
+	var offset: Vector3 = point - thrower.global_position
 	offset.y = 0.0
 	thrower._yaw_degrees = rad_to_deg(thrower._forward_direction.signed_angle_to(offset, Vector3.UP))
-	var drop := thrower.camera_height - thrower.aim_target_height
+	var drop: float = thrower.camera_height - thrower.aim_target_height
 	thrower._elevation_degrees = -rad_to_deg(atan(drop / (offset.length() + thrower.camera_back_offset)))
