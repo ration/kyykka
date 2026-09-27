@@ -47,13 +47,19 @@ func karttu_landed_angular_damp() -> float:
 
 
 # Ground appearance -----------------------------------------------------------
-# Two colours per mode form a low-frequency noise texture (see court.gd's
-# _build_ground) so the field isn't just a flat colour. Winter's colours
-# stay very close so the surface reads as snow rather than sky-blue paint.
+# Summer: the two ends of the court's low-frequency sand-noise texture (see
+# court.gd's _build_ground_texture). Winter: the hollow/drift colours of the
+# court's packed snow in shaders/snow.gdshader (see WinterLandscape), kept
+# close and below white so the court reads as trodden snow, not white paint.
 
 func ground_low_color() -> Color:
-	return Color(0.86, 0.90, 0.96) if current == Mode.WINTER else Color(0.55, 0.48, 0.34)
+	return Color(0.80, 0.83, 0.89) if current == Mode.WINTER else Color(0.55, 0.48, 0.34)
 
 
 func ground_high_color() -> Color:
-	return Color(0.98, 0.99, 1.0) if current == Mode.WINTER else Color(0.82, 0.72, 0.52)
+	return Color(0.90, 0.91, 0.93) if current == Mode.WINTER else Color(0.82, 0.72, 0.52)
+
+
+## White lines vanish on snow, so winter courts are marked in red instead.
+func court_line_color() -> Color:
+	return Color(0.72, 0.08, 0.10) if current == Mode.WINTER else Color.WHITE

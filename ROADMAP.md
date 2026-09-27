@@ -14,7 +14,9 @@ conventions.
   texture (procedural noise; sandy in summer, snow in winter) and karttu
   physics (winter drops friction 5x so the karttu keeps sliding across
   the pesä after landing, stopping ~13 m out vs. summer's ~11.7 m). HUD shows
-  the active season.
+  the active season. Winter also gets its own scenery: snow shader on the
+  court and a surrounding snowfield, rolling hills, spruce forest, low sun,
+  fog and snowfall, with red court lines.
 
 - [x] **Phase 1 — Rules engine (no visuals)**
   - Data model: `Team`, `Pesa`, `ThrowResult`, `Attack`, `Half`, `KyykkaMatch`

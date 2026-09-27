@@ -12,7 +12,7 @@ extends Node3D
 @export var pesa_size: float = 5.0      ## each pesä square is pesa_size x court_width
 @export var pesa_side_margin: float = 0.25  ## gap between kyykkä pairs and the pesä's side lines
 @export var line_width: float = 0.08    ## metres
-@export var line_color: Color = Color.WHITE
+@export var line_color: Color = Color.WHITE  ## overridden by GameMode.court_line_color() in _ready()
 @export var ground_texture_size: int = 128  ## pixels per side of the procedural ground noise; higher = crisper, slower to build
 @export var ground_texture_frequency: float = 0.04  ## FastNoiseLite frequency; higher = smaller mottling
 @export var ground_texture_tiling: float = 4.0  ## how many times the texture repeats across the court
@@ -23,10 +23,17 @@ extends Node3D
 func _ready() -> void:
 	var hw := court_width / 2.0
 	var hl := court_length / 2.0
+	line_color = GameMode.court_line_color()
 	var near_pesa_z := -hl + pesa_size
 	var far_pesa_z := hl - pesa_size
 
-	add_child(_build_ground())
+	var landscape: WinterLandscape = null
+	if GameMode.current == GameMode.Mode.WINTER:
+		landscape = WinterLandscape.new()
+		landscape.apply_atmosphere($WorldEnvironment, $Sun)
+		add_child(landscape)
+
+	add_child(_build_ground(landscape))
 	add_child(_build_ground_collision(hw, hl))
 	add_child(_build_lines(hw, hl, near_pesa_z, far_pesa_z))
 
@@ -60,13 +67,20 @@ func _ready() -> void:
 	add_child(results)
 
 
-func _build_ground() -> MeshInstance3D:
+## In winter the court is packed snow from the same shader as the
+## surrounding snowfield (see WinterLandscape), so the two blend together.
+func _build_ground(landscape: WinterLandscape) -> MeshInstance3D:
 	var plane := PlaneMesh.new()
 	plane.size = Vector2(court_width, court_length)
 
-	var mat := StandardMaterial3D.new()
-	mat.albedo_texture = _build_ground_texture()
-	mat.uv1_scale = Vector3(ground_texture_tiling, ground_texture_tiling, 1)
+	var mat: Material
+	if landscape != null:
+		mat = landscape.snow_material(true)
+	else:
+		var standard := StandardMaterial3D.new()
+		standard.albedo_texture = _build_ground_texture()
+		standard.uv1_scale = Vector3(ground_texture_tiling, ground_texture_tiling, 1)
+		mat = standard
 
 	var ground := MeshInstance3D.new()
 	ground.name = "Ground"
