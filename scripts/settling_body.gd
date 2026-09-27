@@ -25,15 +25,45 @@ const FELL_OFF_HEIGHT := -1.0  ## metres; the ground's top surface is y = 0
 
 var _stuck_timer: float = 0.0
 var _last_position: Vector3
+var _still_timer: float = 0.0
+var _still_anchor: Vector3
 
 
 func _ready() -> void:
 	_last_position = global_position
+	_still_anchor = global_position
+
+
+## Whether ThrowController can treat this body as done moving. Not just
+## `sleeping`: a stuck body the watchdog forced to sleep can be woken again
+## straight away by contact with another one (two struck kyykkä leaning on
+## each other, one rocking a few millimetres on a corner, kept each other
+## awake and stalled throws until settle_timeout_seconds), and a frozen
+## body needn't report sleeping at all.
+##
+## That needs its own timer rather than _stuck_timer: the forced sleep holds
+## for a frame, which resets _stuck_timer, so the pair cycled through
+## "stuck" for a single frame every 2s. _still_timer is only reset by real
+## movement, never by sleeping, so it can't drive the watchdog itself: it
+## would still be high on a resting piece's first frame of a genuine hit
+## and cancel the impact.
+func is_settled() -> bool:
+	return sleeping or freeze or _still_timer > STUCK_TIMEOUT_SECONDS
 
 
 func _physics_process(delta: float) -> void:
 	if freeze:
+		_stuck_timer = 0.0
+		_last_position = global_position
+		_still_timer = 0.0
+		_still_anchor = global_position
 		return
+
+	if global_position.distance_to(_still_anchor) < STUCK_POSITION_THRESHOLD:
+		_still_timer += delta
+	else:
+		_still_timer = 0.0
+		_still_anchor = global_position
 
 	if global_position.y < FELL_OFF_HEIGHT:
 		linear_velocity = Vector3.ZERO

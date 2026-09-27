@@ -227,7 +227,7 @@ func _throw(gauge_degrees: float) -> void:
 
 
 func _await_settle() -> void:
-	var bodies := _rigid_bodies_under(watch_root)
+	var bodies := _settling_bodies_under(watch_root)
 	bodies.append(_karttu)
 
 	var elapsed := 0.0
@@ -235,18 +235,17 @@ func _await_settle() -> void:
 	while elapsed < settle_timeout_seconds:
 		await get_tree().physics_frame
 		elapsed += step
-		# Frozen counts as settled: SettlingBody freezes a body that fell
-		# off the edge of the ground, and a frozen body needn't report sleeping.
-		if bodies.all(func(b: RigidBody3D) -> bool: return b.sleeping or b.freeze):
+		# See SettlingBody.is_settled() for why this isn't just `sleeping`.
+		if bodies.all(func(b: SettlingBody) -> bool: return b.is_settled()):
 			return
 
 
-func _rigid_bodies_under(node: Node) -> Array:
+func _settling_bodies_under(node: Node) -> Array:
 	var result: Array = []
 	for child in node.get_children():
-		if child is RigidBody3D:
+		if child is SettlingBody:
 			result.append(child)
-		result.append_array(_rigid_bodies_under(child))
+		result.append_array(_settling_bodies_under(child))
 	return result
 
 

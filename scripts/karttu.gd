@@ -40,6 +40,7 @@ extends SettlingBody
 ## switches to the landed_* values so it still settles quickly afterward.
 
 const LOCK_GRACE_SECONDS := 0.15
+const SWEEP_PENETRATION := 0.005  ## metres the shortened step ends inside what it would hit
 const MIN_SWEEP_DISTANCE := 0.03  ## metres per step; below this the regular solver can't skip past a kyykkä
 
 @export var flight_linear_damp: float = 0.0
@@ -136,7 +137,7 @@ func _update_spin_lock(state: PhysicsDirectBodyState3D) -> void:
 ## targets — so a direct hit usually skipped clean past the piece between
 ## two steps. Casts this body's own shape along the motion it's about to
 ## make; if that would pass into something new, only this one step is
-## shortened so it ends up touching it, and the full velocity is restored
+## shortened so it ends up just touching (slightly overlapping) it, and the full velocity is restored
 ## next step so the solver resolves a real full-speed impact. Bodies
 ## already in contact (the ground, while sliding) are ignored, or the
 ## karttu would stall against the floor it's resting on.
@@ -162,4 +163,9 @@ func _stop_short_of_next_hit(state: PhysicsDirectBodyState3D) -> void:
 		return
 	_held_velocity = state.linear_velocity
 	_has_held_velocity = true
-	state.linear_velocity *= unsafe
+	# Ending exactly at the first touching fraction left the shapes a hair
+	# apart, so the solver generated no contact. A grazing karttu could
+	# re-shorten itself against the same kyykkä for ~15 steps, crawling
+	# alongside it at <0.5 m/s, and then slide on past without moving it.
+	# SWEEP_PENETRATION ends the step just inside the target instead.
+	state.linear_velocity *= minf(unsafe + SWEEP_PENETRATION / motion.length(), 1.0)
