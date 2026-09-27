@@ -27,11 +27,9 @@ func _ready() -> void:
 	var near_pesa_z := -hl + pesa_size
 	var far_pesa_z := hl - pesa_size
 
-	var landscape: WinterLandscape = null
-	if GameMode.current == GameMode.Mode.WINTER:
-		landscape = WinterLandscape.new()
-		landscape.apply_atmosphere($WorldEnvironment, $Sun)
-		add_child(landscape)
+	var landscape: Landscape = WinterLandscape.new() if GameMode.current == GameMode.Mode.WINTER else SummerLandscape.new()
+	landscape.apply_atmosphere($WorldEnvironment, $Sun)
+	add_child(landscape)
 
 	add_child(_build_ground(landscape))
 	add_child(_build_ground_collision(hw, hl))
@@ -67,19 +65,19 @@ func _ready() -> void:
 	add_child(results)
 
 
-## In winter the court is packed snow from the same shader as the
-## surrounding snowfield (see WinterLandscape), so the two blend together.
-func _build_ground(landscape: WinterLandscape) -> MeshInstance3D:
+## The landscape can supply the court's material (winter: packed snow from
+## the same shader as the surrounding snowfield, so the two blend together);
+## otherwise it's the procedural sand texture below.
+func _build_ground(landscape: Landscape) -> MeshInstance3D:
 	var plane := PlaneMesh.new()
 	plane.size = Vector2(court_width, court_length)
 
-	var mat: Material
-	if landscape != null:
-		mat = landscape.snow_material(true)
-	else:
+	var mat: Material = landscape.court_material()
+	if mat == null:
 		var standard := StandardMaterial3D.new()
 		standard.albedo_texture = _build_ground_texture()
-		standard.uv1_scale = Vector3(ground_texture_tiling, ground_texture_tiling, 1)
+		# Tiled in proportion to the court's shape, or the 5x20 m plane stretches it 4x lengthwise into streaks.
+		standard.uv1_scale = Vector3(ground_texture_tiling, ground_texture_tiling * court_length / court_width, 1)
 		mat = standard
 
 	var ground := MeshInstance3D.new()
@@ -103,11 +101,12 @@ func _build_ground_texture() -> ImageTexture:
 	var low_color: Color = GameMode.ground_low_color()
 	var high_color: Color = GameMode.ground_high_color()
 
+	# Seamless, since the texture tiles across the court.
+	var values := noise.get_seamless_image(ground_texture_size, ground_texture_size, false, false, 0.1, false)
 	var image := Image.create(ground_texture_size, ground_texture_size, false, Image.FORMAT_RGB8)
 	for y in range(ground_texture_size):
 		for x in range(ground_texture_size):
-			var n := noise.get_noise_2d(float(x), float(y)) * 0.5 + 0.5
-			image.set_pixel(x, y, low_color.lerp(high_color, n))
+			image.set_pixel(x, y, low_color.lerp(high_color, values.get_pixel(x, y).r))
 	return ImageTexture.create_from_image(image)
 
 

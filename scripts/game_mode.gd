@@ -49,7 +49,7 @@ func karttu_landed_angular_damp() -> float:
 # Ground appearance -----------------------------------------------------------
 # Summer: the two ends of the court's low-frequency sand-noise texture (see
 # court.gd's _build_ground_texture). Winter: the hollow/drift colours of the
-# court's packed snow in shaders/snow.gdshader (see WinterLandscape), kept
+# court's packed snow in shaders/ground.gdshader (see WinterLandscape), kept
 # close and below white so the court reads as trodden snow, not white paint.
 
 func ground_low_color() -> Color:
