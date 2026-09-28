@@ -18,6 +18,14 @@ extends RigidBody3D
 ## winter karttu sliding off the end of the court on every throw, and
 ## struck kyykkä occasionally pushed off it in summer too). Once a body
 ## drops below FELL_OFF_HEIGHT it's frozen in place instead.
+##
+## Also reports collisions for sound effects (see CourtAudio): `impacted`
+## fires on each new contact with how hard it was, measured as this body's
+## change in velocity across the step the contact appeared in.
+## _physics_process runs just before each physics step, so the velocity
+## recorded there is the pre-impact one.
+
+signal impacted(other: Node, strength: float)  ## strength in m/s of velocity change
 
 const STUCK_TIMEOUT_SECONDS := 2.0
 const STUCK_POSITION_THRESHOLD := 0.02  ## metres
@@ -27,11 +35,26 @@ var _stuck_timer: float = 0.0
 var _last_position: Vector3
 var _still_timer: float = 0.0
 var _still_anchor: Vector3
+var _pre_step_velocity: Vector3
 
 
 func _ready() -> void:
 	_last_position = global_position
 	_still_anchor = global_position
+	contact_monitor = true
+	max_contacts_reported = maxi(max_contacts_reported, 4)
+	body_entered.connect(_on_body_entered)
+
+
+## The velocity this body will actually move with during the coming step.
+## Karttu overrides it: its hand-rolled CCD temporarily shortens a step's
+## velocity just before an impact.
+func _reference_velocity() -> Vector3:
+	return linear_velocity
+
+
+func _on_body_entered(other: Node) -> void:
+	impacted.emit(other, (_pre_step_velocity - linear_velocity).length())
 
 
 ## Whether ThrowController can treat this body as done moving. Not just
@@ -52,6 +75,7 @@ func is_settled() -> bool:
 
 
 func _physics_process(delta: float) -> void:
+	_pre_step_velocity = _reference_velocity()
 	if freeze:
 		_stuck_timer = 0.0
 		_last_position = global_position

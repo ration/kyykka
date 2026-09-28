@@ -98,6 +98,10 @@ func stop_spin_lock() -> void:
 	angular_damp = landed_angular_damp
 
 
+func _reference_velocity() -> Vector3:
+	return _held_velocity if _has_held_velocity else linear_velocity
+
+
 func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 	if _has_held_velocity:
 		state.linear_velocity = _held_velocity

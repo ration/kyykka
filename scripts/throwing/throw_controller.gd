@@ -22,6 +22,8 @@ extends Node3D
 ## the gauge past 180 without releasing cancels the swing.
 
 signal throw_settled
+signal thrown  ## the karttu has just left the thrower's hand
+signal swing_cancelled  ## the gauge ran past 180 without a release
 
 @export var karttu_scene: PackedScene
 @export var camera: Camera3D
@@ -151,6 +153,7 @@ func _process(delta: float) -> void:
 			_awaiting_release = true
 			_gauge_bar.hide()
 			_show_miss_indicator()
+			swing_cancelled.emit()
 		else:
 			_update_gauge_marker()
 
@@ -219,6 +222,7 @@ func _throw(gauge_degrees: float) -> void:
 	# down the throw direction instead — narrow, hits far fewer kyykkä.
 	# Driven by the karttu itself via _integrate_forces, not set once.
 	_karttu.start_spin_lock(Vector3.UP, rate)
+	thrown.emit()
 
 	await _await_settle()
 	_reset_karttu()

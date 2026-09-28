@@ -47,6 +47,11 @@ func _ready() -> void:
 	match_controller.camera = $Camera3D
 	add_child(match_controller)
 
+	var audio := CourtAudio.new()
+	audio.name = "CourtAudio"
+	audio.match_controller = match_controller
+	add_child(audio)
+
 	# Pause menu handles Esc during the match; the results screen owns
 	# exits once the match ends, so mute the pause menu at that point.
 	var pause_menu := PauseMenu.new()

@@ -92,7 +92,11 @@ conventions.
   - Player/team switching, per-player controls
 
 - [ ] **Phase 8 — Audio & polish**
-  - Impact SFX, ambient/music, hit particles, throw replay/slow-mo
+  - [x] Impact SFX — procedurally synthesised (`scripts/audio/`, no audio
+    files): karttu/kyykkä knocks, season-specific ground landings and
+    karttu slide, throw whoosh, missed-swing, score chime, match-end jingle
+  - [ ] Ambient/music, UI click sounds
+  - [ ] Hit particles, throw replay/slow-mo
 
 - [ ] **Phase 9 — Settings & persistence**
   - Options menu, key bindings, save/load config

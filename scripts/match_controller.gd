@@ -37,6 +37,7 @@ var near_scorer: PesaScorer
 var far_scorer: PesaScorer
 
 var thrower: ThrowController
+var last_throw_result: ThrowResult  ## the most recent throw's effect, for attack_scored listeners
 
 
 func _ready() -> void:
@@ -98,7 +99,8 @@ func _configure_thrower_for_current_attack() -> void:
 
 func _on_throw_settled() -> void:
 	var scorer := far_scorer if current_attack == current_half.attack_by_team_a else near_scorer
-	current_attack.throw(scorer.score_current_state())
+	last_throw_result = scorer.score_current_state()
+	current_attack.throw(last_throw_result)
 
 	print("%s: karttu_used=%d/%d in_square=%d on_line=%d removed=%d finished=%s score=%s" % [
 		current_attack.attacking_team.team_name,
