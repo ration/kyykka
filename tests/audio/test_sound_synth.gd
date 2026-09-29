@@ -100,3 +100,31 @@ func test_half_strength_impact_is_about_6_db_quieter() -> void:
 
 func test_faint_impact_is_floored_not_silent() -> void:
 	assert_almost_eq(CourtAudio.impact_volume_db(0.01, 8.0), linear_to_db(CourtAudio.MIN_GAIN), 0.001)
+
+
+func test_crowd_cheers_are_loud_then_fade_out() -> void:
+	for big in [false, true]:
+		var samples := _samples(SoundSynth.crowd_cheer(1, big))
+		assert_almost_eq(_peak(SoundSynth.crowd_cheer(1, big)), SoundSynth.PEAK, 0.01)
+		var quarter := samples.size() / 4
+		assert_gt(_rms(samples.slice(0, quarter)), 4.0 * _rms(samples.slice(3 * quarter)), "big=%s" % big)
+
+
+func test_crowd_cheer_is_deterministic_per_seed() -> void:
+	assert_eq(SoundSynth.crowd_cheer(3, false).data, SoundSynth.crowd_cheer(3, false).data)
+
+
+func test_group_shout_is_short_and_normalised() -> void:
+	var shout := SoundSynth.group_shout(1)
+	assert_lt(shout.size() / float(SoundSynth.MIX_RATE), 0.5)
+	var peak := 0.0
+	for v in shout:
+		peak = maxf(peak, absf(v))
+	assert_almost_eq(peak, 1.0, 0.001)
+
+
+func _rms(samples: PackedFloat32Array) -> float:
+	var sum := 0.0
+	for v in samples:
+		sum += v * v
+	return sqrt(sum / samples.size())

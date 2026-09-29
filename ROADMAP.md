@@ -95,7 +95,12 @@ conventions.
   - [x] Impact SFX — procedurally synthesised (`scripts/audio/`, no audio
     files): karttu/kyykkä knocks, season-specific ground landings and
     karttu slide, throw whoosh, missed-swing, score chime, match-end jingle
-  - [ ] Ambient/music, UI click sounds
+  - [x] Music — a looping Eläkeläiset-style humppa synthesised at boot (`scripts/audio/music_synth.gd`,
+    played by the `Music` autoload, toggle in the pause menu)
+  - [x] Spectators — student crowd in guild overalls that cheers (audibly,
+    synthesised voices + clapping) at scoring throws, and swigs from cans
+    (`scripts/crowd/`)
+  - [ ] Ambience, UI click sounds
   - [ ] Hit particles, throw replay/slow-mo
 
 - [ ] **Phase 9 — Settings & persistence**

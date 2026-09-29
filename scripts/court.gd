@@ -47,9 +47,17 @@ func _ready() -> void:
 	match_controller.camera = $Camera3D
 	add_child(match_controller)
 
+	var crowd := Crowd.new()
+	crowd.court_width = court_width
+	crowd.court_length = court_length
+	crowd.match_controller = match_controller
+	crowd.shirt_logo = preload("res://assets/pareto.svg")
+	add_child(crowd)
+
 	var audio := CourtAudio.new()
 	audio.name = "CourtAudio"
 	audio.match_controller = match_controller
+	audio.crowd = crowd
 	add_child(audio)
 
 	# Pause menu handles Esc during the match; the results screen owns

@@ -13,6 +13,10 @@ extends Node3D
 ## Resting contact jitter (a stacked pair settling, a piece rocking) stays
 ## under IMPACT_THRESHOLD, and a pair that just played is muted for
 ## PAIR_COOLDOWN_MS so a bouncing landing doesn't rattle.
+##
+## The crowd's cheers take ~0.5-1 s each to synthesise, so they're rendered
+## on a WorkerThreadPool task (then kept in SoundSynth's cache); a cheer
+## before they're ready is just silent.
 
 enum Kind { KARTTU_HIT, KYYKKA_CLACK, KARTTU_LAND, KYYKKA_LAND }
 
@@ -39,8 +43,10 @@ const BASE_DB := {
 const SLIDE_FULL_SPEED := 8.0  ## m/s at which the slide loop is at full volume
 const SLIDE_MIN_SPEED := 0.3
 const SILENT_DB := -60.0
+const CHEER_VARIANTS := 2
 
 var match_controller: MatchController
+var crowd: Crowd  ## optional; its cheers play here
 
 var _impact_streams: Dictionary = {}  ## Kind -> Array[AudioStreamWAV]
 var _pool: Array[AudioStreamPlayer3D] = []
@@ -58,6 +64,12 @@ var _miss_stream: AudioStreamWAV
 var _chime_stream: AudioStreamWAV
 var _jingle_stream: AudioStreamWAV
 
+var _cheer_streams: Array[AudioStreamWAV] = []  ## small cheers, once rendered
+var _big_cheer_stream: AudioStreamWAV
+var _cheer_players: Array[AudioStreamPlayer] = []
+var _cheer_task: int = -1
+var _rendered_cheers: Array[AudioStreamWAV] = []  ## written by the render task only
+
 
 func _ready() -> void:
 	assert(match_controller != null)
@@ -72,6 +84,9 @@ func _ready() -> void:
 	match_controller.thrower.swing_cancelled.connect(_play_cue.bind(_miss_stream, -6.0))
 	match_controller.attack_scored.connect(_on_attack_scored)
 	match_controller.match_finished.connect(_play_cue.bind(_jingle_stream, -3.0))
+	if crowd != null:
+		crowd.cheered.connect(_on_crowd_cheered)
+		_start_cheer_render()
 
 
 func _build_streams() -> void:
@@ -119,6 +134,10 @@ func _build_players() -> void:
 	add_child(_whoosh_player)
 	_cue_player = AudioStreamPlayer.new()
 	add_child(_cue_player)
+	for i in range(2):  # so a new cheer doesn't cut off the last one
+		var player := AudioStreamPlayer.new()
+		_cheer_players.append(player)
+		add_child(player)
 
 
 ## The far pesä is 10-15 m from the listener (the camera), so the default
@@ -267,3 +286,48 @@ func _play_cue(stream: AudioStreamWAV, volume_db: float, pitch: float = 1.0) -> 
 	_cue_player.volume_db = volume_db
 	_cue_player.pitch_scale = pitch
 	_cue_player.play()
+
+
+func _start_cheer_render() -> void:
+	if SoundSynth.lookup("cheer_big") != null:
+		for v in range(CHEER_VARIANTS):
+			_cheer_streams.append(SoundSynth.lookup("cheer:%d" % v))
+		_big_cheer_stream = SoundSynth.lookup("cheer_big")
+	elif DisplayServer.get_name() != "headless":  # nobody listening in tests/tools
+		_cheer_task = WorkerThreadPool.add_task(_render_cheers)
+
+
+func _render_cheers() -> void:
+	for v in range(CHEER_VARIANTS):
+		_rendered_cheers.append(SoundSynth.crowd_cheer(200 + v, false))
+	_rendered_cheers.append(SoundSynth.crowd_cheer(300, true))
+
+
+func _process(_delta: float) -> void:
+	if _cheer_task < 0 or not WorkerThreadPool.is_task_completed(_cheer_task):
+		return
+	WorkerThreadPool.wait_for_task_completion(_cheer_task)
+	_cheer_task = -1
+	for v in range(CHEER_VARIANTS):
+		SoundSynth.store("cheer:%d" % v, _rendered_cheers[v])
+		_cheer_streams.append(_rendered_cheers[v])
+	_big_cheer_stream = _rendered_cheers[CHEER_VARIANTS]
+	SoundSynth.store("cheer_big", _big_cheer_stream)
+
+
+func _exit_tree() -> void:
+	if _cheer_task >= 0:
+		WorkerThreadPool.wait_for_task_completion(_cheer_task)
+
+
+## Louder the more of the crowd is cheering; the whole crowd for a long
+## time (the match ending) gets the big cheer.
+func _on_crowd_cheered(fraction: float, seconds: float) -> void:
+	if _cheer_streams.is_empty():
+		return
+	var big := fraction >= 1.0 and seconds >= 3.0
+	var player := _cheer_players[0] if not _cheer_players[0].playing else _cheer_players[1]
+	player.stream = _big_cheer_stream if big else _cheer_streams[randi() % _cheer_streams.size()]
+	player.volume_db = -6.0 + linear_to_db(clampf(fraction, 0.3, 1.0))
+	player.pitch_scale = randf_range(0.95, 1.05)
+	player.play()

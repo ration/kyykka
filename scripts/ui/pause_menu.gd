@@ -1,6 +1,7 @@
 class_name PauseMenu
 extends CanvasLayer
-## Esc-toggled overlay during a match: Resume / Main Menu / Quit.
+## Esc-toggled overlay during a match: Resume / Music on-off / Main Menu /
+## Quit.
 ## Runs even while the tree is paused (process_mode = ALWAYS) so it can
 ## un-pause itself, and takes over mouse capture from ThrowController
 ## while open so its buttons are actually clickable.
@@ -49,6 +50,9 @@ func _build_ui() -> void:
 	box.add_child(title)
 
 	box.add_child(_menu_button("Resume", _resume))
+	var music := _menu_button(_music_label(), Callable())
+	music.pressed.connect(_toggle_music.bind(music))
+	box.add_child(music)
 	box.add_child(_menu_button("Main Menu", _return_to_main_menu))
 	box.add_child(_menu_button("Quit", _quit_game))
 
@@ -59,8 +63,18 @@ func _menu_button(text: String, callback: Callable) -> Button:
 	var button := Button.new()
 	button.text = text
 	button.custom_minimum_size = Vector2(220, 40)
-	button.pressed.connect(callback)
+	if callback.is_valid():
+		button.pressed.connect(callback)
 	return button
+
+
+func _music_label() -> String:
+	return "Music: On" if Music.enabled else "Music: Off"
+
+
+func _toggle_music(button: Button) -> void:
+	Music.enabled = not Music.enabled
+	button.text = _music_label()
 
 
 func _unhandled_input(event: InputEvent) -> void:

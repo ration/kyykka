@@ -34,6 +34,16 @@ static func cached(key: String, build: Callable) -> AudioStreamWAV:
 	return _cache[key]
 
 
+## The stream stored under `key`, or null. With store(), for streams
+## built somewhere cached() can't wait on (a worker thread).
+static func lookup(key: String) -> AudioStreamWAV:
+	return _cache.get(key)
+
+
+static func store(key: String, stream: AudioStreamWAV) -> void:
+	_cache[key] = stream
+
+
 # Impacts ---------------------------------------------------------------------
 
 ## Karttu striking a kyykkä: the struck piece's bright knock over the
@@ -152,6 +162,160 @@ static func match_end_jingle() -> AudioStreamWAV:
 		var last := n == notes.size() - 1
 		_add_bell(buf, notes[n], 0.15 * n, 1.2 if last else 0.45, 1.0)
 	return _to_stream(buf)
+
+
+# Voices ----------------------------------------------------------------------
+# Source-filter synthesis: a buzzy sawtooth "glottal" source with a pitch
+# contour, vibrato and breath noise, shaped into a vowel by three formant
+# bandpasses. Voices sharing a vowel are summed first and filtered once.
+
+## Formant frequencies (F1, F2, F3 in Hz) of a male voice; a female
+## voice's are ~17 % higher.
+const VOWEL_A := Vector3(730, 1090, 2440)
+const VOWEL_AE := Vector3(660, 1720, 2410)  ## Finnish "ä"
+const VOWEL_E := Vector3(530, 1840, 2480)
+const VOWEL_I := Vector3(300, 2250, 2950)
+const VOWEL_U := Vector3(320, 870, 2240)
+const FEMALE_FORMANTS := 1.17
+
+
+## Crowd cheering: a wave of voices shouting "jee!" / "aah" / "huu",
+## rising in pitch and falling away, some of them chanting short
+## syllables, over clapping and a whistle or two. `big` is the longer,
+## fuller cheer for the end of a match.
+static func crowd_cheer(seed: int, big: bool) -> AudioStreamWAV:
+	var rng := _rng(seed)
+	var duration := 4.5 if big else 2.6
+	var vowels: Array[Vector3] = [VOWEL_AE, VOWEL_A, VOWEL_U]
+	var sources: Array[PackedFloat32Array] = []  # [vowel * 2 + female]
+	for i in range(vowels.size() * 2):
+		sources.append(_silence(duration))
+
+	for v in range(34 if big else 20):
+		var female := rng.randf() < 0.5
+		var source := sources[rng.randi() % vowels.size() * 2 + int(female)]
+		var f0 := rng.randf_range(210.0, 330.0) if female else rng.randf_range(120.0, 190.0)
+		var amp := rng.randf_range(0.5, 1.0)
+		if rng.randf() < 0.25:
+			# Chanting: "jee! jee! jee!"
+			var at := rng.randf_range(0.1, 0.5)
+			for syllable in range(rng.randi_range(2, 4)):
+				_add_voice(source, rng, at, 0.22, f0 * 1.2, f0 * 1.35, f0 * 1.1, amp * 0.8, 0.25)
+				at += rng.randf_range(0.3, 0.38)
+		else:
+			var start := pow(rng.randf(), 2.0) * 0.35
+			var length := rng.randf_range(0.7, duration * 0.65)
+			_add_voice(source, rng, start, length, f0 * 0.95, f0 * rng.randf_range(1.25, 1.5), f0 * 0.8, amp, 0.3)
+		if big and rng.randf() < 0.4:  # a second breath
+			var again := rng.randf_range(1.6, 2.6)
+			_add_voice(source, rng, again, rng.randf_range(0.6, 1.4), f0, f0 * 1.3, f0 * 0.8, amp * 0.6, 0.3)
+
+	var buf := _silence(duration)
+	for i in range(sources.size()):
+		var formants := vowels[i >> 1] * (FEMALE_FORMANTS if i % 2 == 1 else 1.0)
+		_mix(buf, _formants(sources[i], formants, formants), 1.0)
+
+	# Clapping: dense at first, thinning out.
+	var claps := _silence(duration)
+	var clap_rate := 40.0 if big else 24.0
+	var t := 0.2
+	while t < duration * 0.85:
+		var density := clap_rate * (1.0 - t / duration)
+		t += -log(maxf(rng.randf(), 1e-6)) / density
+		_add_decaying_noise_burst(claps, rng, t, 0.006, rng.randf_range(0.4, 1.0))
+	_mix(buf, _bandpass(claps, 1400.0, 1.1), 0.5)
+
+	for w in range(2 if big else int(rng.randf() < 0.6)):
+		_add_whistle(buf, rng, rng.randf_range(0.2, 0.9), 0.14)
+
+	# Everyone's run out of breath by the end.
+	var fade_from := int(duration * 0.5 * MIX_RATE)
+	for i in range(fade_from, buf.size()):
+		buf[i] *= pow(1.0 - float(i - fade_from) / (buf.size() - fade_from), 1.5)
+	return _to_stream(buf)
+
+
+## A few voices shouting "HEI!" together — breathy "h", then "e" gliding to
+## "i", pitch falling. Returned as a raw buffer, peak 1, for MusicSynth.
+static func group_shout(seed: int, voices: int = 5) -> PackedFloat32Array:
+	var rng := _rng(seed)
+	var source := _silence(0.34)
+	_add_decaying_noise(source, rng, 0.0, 0.03, 0.35)  # the "h"
+	for v in range(voices):
+		var f0 := rng.randf_range(135.0, 185.0)
+		_add_voice(source, rng, rng.randf_range(0.03, 0.05), 0.24, f0 * 1.08, f0 * 1.12, f0 * 0.85, rng.randf_range(0.7, 1.0), 0.2)
+	var out := _formants(source, VOWEL_E, VOWEL_I, 0.11, 0.24)
+	var peak := 0.0
+	for v in out:
+		peak = maxf(peak, absf(v))
+	for i in range(out.size()):
+		out[i] /= peak
+	return out
+
+
+## One voice into `buf`: pitch rising from `f0_from` to `f0_peak` over the
+## first quarter of the note, then falling to `f0_to`, with vibrato, a
+## little breath noise, and a soft attack and release.
+static func _add_voice(buf: PackedFloat32Array, rng: RandomNumberGenerator, start: float, duration: float, f0_from: float, f0_peak: float, f0_to: float, amp: float, breath: float) -> void:
+	var offset := int(start * MIX_RATE)
+	var n := mini(int(duration * MIX_RATE), buf.size() - offset)
+	var attack := 0.03 * MIX_RATE
+	var vibrato_phase := rng.randf() * TAU
+	var vibrato_step := TAU * rng.randf_range(4.5, 6.5) / MIX_RATE
+	var phase := rng.randf()
+	for i in range(n):
+		var t := i / float(n)
+		var f0 := lerpf(f0_from, f0_peak, t * 4.0) if t < 0.25 else lerpf(f0_peak, f0_to, (t - 0.25) / 0.75)
+		f0 *= 1.0 + 0.015 * sin(vibrato_phase + vibrato_step * i)
+		phase += f0 / MIX_RATE
+		if phase >= 1.0:
+			phase -= 1.0
+		var env := minf(i / attack, 1.0) * (1.0 if t < 0.6 else pow((1.0 - t) / 0.4, 1.5))
+		buf[offset + i] += amp * env * (2.0 * phase - 1.0 + breath * rng.randf_range(-1.0, 1.0))
+
+
+## Three formant bandpasses summed, their centres gliding from `from` to
+## `to` between `glide_start` and `glide_end` seconds; returns a new buffer.
+static func _formants(source: PackedFloat32Array, from: Vector3, to: Vector3, glide_start: float = 0.0, glide_end: float = 0.0) -> PackedFloat32Array:
+	var out := _silence(source.size() / float(MIX_RATE))
+	var gains := [1.0, 0.6, 0.3]
+	var start_i := glide_start * MIX_RATE
+	var glide_n := maxf((glide_end - glide_start) * MIX_RATE, 1.0)
+	for k in range(3):
+		var f_from := 2.0 * sin(PI * from[k] / MIX_RATE)
+		var f_to := 2.0 * sin(PI * to[k] / MIX_RATE)
+		var low := 0.0
+		var band := 0.0
+		for i in range(source.size()):
+			var f := lerpf(f_from, f_to, clampf((i - start_i) / glide_n, 0.0, 1.0))
+			var high := source[i] - low - 0.15 * band
+			band += f * high
+			low += f * band
+			out[i] += gains[k] * band
+	return out
+
+
+static func _add_decaying_noise_burst(buf: PackedFloat32Array, rng: RandomNumberGenerator, start: float, decay: float, amp: float) -> void:
+	var k := exp(-1.0 / (decay * MIX_RATE))
+	var env := amp
+	for i in range(int(start * MIX_RATE), mini(int((start + decay * 6.0) * MIX_RATE), buf.size())):
+		buf[i] += env * rng.randf_range(-1.0, 1.0)
+		env *= k
+
+
+## A two-finger whistle: a pure tone swooping up, holding, then dropping.
+static func _add_whistle(buf: PackedFloat32Array, rng: RandomNumberGenerator, start: float, amp: float) -> void:
+	var duration := rng.randf_range(0.6, 1.0)
+	var low := rng.randf_range(1600.0, 1900.0)
+	var high := rng.randf_range(2700.0, 3200.0)
+	var offset := int(start * MIX_RATE)
+	var n := mini(int(duration * MIX_RATE), buf.size() - offset)
+	var phase := 0.0
+	for i in range(n):
+		var t := i / float(n)
+		var f := lerpf(low, high, minf(t * 5.0, 1.0)) if t < 0.75 else lerpf(high, high * 0.8, (t - 0.75) / 0.25)
+		phase += TAU * f * (1.0 + 0.004 * sin(TAU * 6.0 * i / MIX_RATE)) / MIX_RATE
+		buf[offset + i] += amp * minf(t * 30.0, 1.0) * minf((1.0 - t) * 10.0, 1.0) * sin(phase)
 
 
 # Building blocks -------------------------------------------------------------
