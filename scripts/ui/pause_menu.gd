@@ -6,11 +6,17 @@ extends CanvasLayer
 ## un-pause itself, and takes over mouse capture from ThrowController
 ## while open so its buttons are actually clickable.
 ##
+## Online the game can't pause (the other player is still playing), so the
+## menu just opens over it and `toggled` tells court.gd to stop the
+## thrower taking input meanwhile. Main Menu then also leaves the match.
+##
 ## Silent until the user presses Esc during the match; if the results
 ## screen is up (match already finished), it stays out of the way and
 ## lets the results screen own the exit flow instead.
 
 const MAIN_MENU_SCENE := "res://scenes/main_menu.tscn"
+
+signal toggled(open: bool)
 
 var enabled: bool = true  ## set to false once the match ends; results screen owns exits from there
 
@@ -81,7 +87,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not enabled:
 		return
 	if event.is_action_pressed("ui_cancel"):
-		if get_tree().paused:
+		if _panel.visible:
 			_resume()
 		else:
 			_pause()
@@ -89,15 +95,17 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _pause() -> void:
-	get_tree().paused = true
+	get_tree().paused = not Net.is_online()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_panel.show()
+	toggled.emit(true)
 
 
 func _resume() -> void:
 	_panel.hide()
 	get_tree().paused = false
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	toggled.emit(false)
 
 
 func _return_to_main_menu() -> void:

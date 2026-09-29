@@ -45,6 +45,9 @@ func _ready() -> void:
 	match_controller.kyykka_scene = preload("res://scenes/kyykka.tscn")
 	match_controller.karttu_scene = preload("res://scenes/karttu.tscn")
 	match_controller.camera = $Camera3D
+	# Online: the client shows the host's physics; each side plays its own team.
+	match_controller.remote_results = Net.is_client()
+	match_controller.local_team = Net.local_team if Net.is_online() else -1
 	add_child(match_controller)
 
 	var crowd := Crowd.new()
@@ -58,7 +61,14 @@ func _ready() -> void:
 	audio.name = "CourtAudio"
 	audio.match_controller = match_controller
 	audio.crowd = crowd
+	audio.remote_physics = Net.is_client()
 	add_child(audio)
+
+	if Net.is_online():
+		var link := OnlineLink.new()
+		link.match_controller = match_controller
+		link.audio = audio
+		add_child(link)
 
 	# Pause menu handles Esc during the match; the results screen owns
 	# exits once the match ends, so mute the pause menu at that point.
@@ -66,6 +76,7 @@ func _ready() -> void:
 	pause_menu.name = "PauseMenu"
 	add_child(pause_menu)
 	match_controller.match_finished.connect(func() -> void: pause_menu.enabled = false)
+	pause_menu.toggled.connect(func(open: bool) -> void: match_controller.thrower.suspended = open)
 
 	var hud := HUD.new()
 	hud.name = "HUD"

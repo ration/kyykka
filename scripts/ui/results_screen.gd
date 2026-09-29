@@ -12,6 +12,7 @@ var match_controller: MatchController
 var _panel: PanelContainer
 var _title_label: Label
 var _score_label: Label
+var _rematch_button: Button
 
 
 func _ready() -> void:
@@ -53,7 +54,13 @@ func _build_ui() -> void:
 	_score_label.add_theme_color_override("font_color", Color.WHITE)
 	box.add_child(_score_label)
 
-	box.add_child(_menu_button("Rematch", _rematch))
+	_rematch_button = _menu_button("Rematch", _rematch)
+	if Net.is_client():
+		# The host restarts both machines; see Net.start_match().
+		_rematch_button.text = "Waiting for the host to rematch"
+		_rematch_button.disabled = true
+	box.add_child(_rematch_button)
+	Net.peer_left.connect(func() -> void: _rematch_button.disabled = true)
 	box.add_child(_menu_button("Main Menu", _return_to_main_menu))
 	box.add_child(_menu_button("Quit", _quit_game))
 
@@ -86,7 +93,10 @@ func _on_match_finished() -> void:
 
 func _rematch() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	get_tree().change_scene_to_file(COURT_SCENE)
+	if Net.is_host():
+		Net.start_match()
+	else:
+		get_tree().change_scene_to_file(COURT_SCENE)
 
 
 func _return_to_main_menu() -> void:

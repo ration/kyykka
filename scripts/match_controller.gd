@@ -12,11 +12,20 @@ extends Node3D
 ##
 ## Signals let the HUD (and results screen) subscribe to match-state
 ## changes instead of this node poking UI directly.
+##
+## Online (see Net / OnlineLink) the same node runs on both machines. The
+## host scores its own physics as usual; the client sets remote_results
+## and is fed the host's ThrowResults through apply_result(), so both
+## advance the rules engine identically. `local_team` limits input to that
+## team's turns.
 
 signal half_started(half_number: int)
 signal turn_changed
 signal attack_scored
 signal match_finished
+## A throw has been scored, before it's applied and the turn moves on (the
+## pesäs are still as the throw left them) — for OnlineLink to send.
+signal throw_resolved(result: ThrowResult)
 
 @export var court_width: float
 @export var pesa_size: float
@@ -26,6 +35,17 @@ signal match_finished
 @export var kyykka_scene: PackedScene
 @export var karttu_scene: PackedScene
 @export var camera: Camera3D
+## Online client: scores come from the host via apply_result(), not from
+## this machine's physics.
+@export var remote_results: bool = false
+## Online: the team (0 = A, 1 = B) played on this machine, whose turns
+## alone take input. -1 is hot-seat: every turn is local.
+@export var local_team: int = -1
+
+var waiting_for_opponent: bool = false:  ## online: hold input until the other side is ready
+	set(value):
+		waiting_for_opponent = value
+		_update_input()
 
 var kyykka_match: KyykkaMatch
 var current_half: Half
@@ -49,7 +69,9 @@ func _ready() -> void:
 	thrower.karttu_scene = karttu_scene
 	thrower.camera = camera
 	thrower.line_half_width = court_width / 2.0
-	thrower.throw_settled.connect(_on_throw_settled)
+	thrower.remote_throws = remote_results
+	if not remote_results:
+		thrower.throw_settled.connect(_on_throw_settled)
 	add_child(thrower)
 	_configure_thrower_for_current_attack()
 
@@ -99,13 +121,23 @@ func _configure_thrower_for_current_attack() -> void:
 		thrower.configure(Vector3(0, 0, far_pesa_z), Vector3(0, 0, -1), near_pesa_view)
 	far_pesa_view.set_targeted(team_a)
 	near_pesa_view.set_targeted(not team_a)
+	_update_input()
 	print("%s's turn" % current_attack.attacking_team.team_name)
 	turn_changed.emit()
 
 
 func _on_throw_settled() -> void:
 	var scorer := far_scorer if current_attack == current_half.attack_by_team_a else near_scorer
-	last_throw_result = scorer.score_current_state()
+	var result := scorer.score_current_state()
+	throw_resolved.emit(result)
+	apply_result(result)
+
+
+## Applies one throw's result and moves the match on. Called by
+## _on_throw_settled() normally, or with the host's result on an online
+## client.
+func apply_result(result: ThrowResult) -> void:
+	last_throw_result = result
 	current_attack.throw(last_throw_result)
 
 	print("%s: karttu_used=%d/%d in_square=%d on_line=%d removed=%d finished=%s score=%s" % [
@@ -136,6 +168,31 @@ func _advance_turn() -> void:
 ## Team A attacks the far pesä, team B the near one.
 func is_team_a_turn() -> bool:
 	return current_attack == current_half.attack_by_team_a
+
+
+func current_team() -> int:
+	return 0 if is_team_a_turn() else 1
+
+
+func is_local_turn() -> bool:
+	return local_team < 0 or local_team == current_team()
+
+
+## Every body a throw can move, in an order both online machines agree on
+## (same spawn order): both pesäs' kyykkä, then the karttu.
+func synced_bodies() -> Array[RigidBody3D]:
+	var bodies: Array[RigidBody3D] = []
+	for view in [near_pesa_view, far_pesa_view]:
+		for piece in view.get_children():
+			bodies.append(piece)
+	bodies.append(thrower._karttu)
+	return bodies
+
+
+func _update_input() -> void:
+	if thrower == null or kyykka_match == null or kyykka_match.is_finished():
+		return
+	thrower.enabled = is_local_turn() and not waiting_for_opponent
 
 
 func _end_match() -> void:

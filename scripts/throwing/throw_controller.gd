@@ -30,10 +30,16 @@ extends Node3D
 signal throw_settled
 signal thrown  ## the karttu has just left the thrower's hand
 signal swing_cancelled  ## the gauge ran past 180 without a release
+## remote_throws only: the swing was released; the host does the throw.
+signal throw_requested(gauge_degrees: float)
 
 @export var karttu_scene: PackedScene
 @export var camera: Camera3D
-@export var enabled: bool = true  ## set false to stop accepting input once the match is over
+@export var enabled: bool = true  ## false: not accepting input (match over, or the other player's turn online)
+## Online client: releasing the swing emits throw_requested instead of
+## throwing, since the host runs the physics (see OnlineLink).
+@export var remote_throws: bool = false
+var suspended: bool = false  ## true while a menu is open without pausing the game (online)
 
 @export var aim_cone_degrees: float = 25.0  ## how far left/right of forward you can aim
 @export var mouse_sensitivity: float = 0.2  ## degrees per pixel of mouse motion
@@ -103,6 +109,9 @@ func configure(p_position: Vector3, p_forward: Vector3, p_watch_root: Node3D) ->
 	_line_offset = 0.0
 	_forward_direction = p_forward.normalized()
 	watch_root = p_watch_root
+	_busy = false
+	_swinging = false
+	_gauge_bar.hide()
 	_yaw_degrees = 0.0
 	_elevation_degrees = launch_elevation_degrees
 	_fov_degrees = default_fov_degrees
@@ -136,13 +145,55 @@ func line_offset() -> float:
 	return _line_offset
 
 
+## Current aim as (yaw, elevation, line offset), for sending online.
+func aim_state() -> Vector3:
+	return Vector3(_yaw_degrees, _elevation_degrees, _line_offset)
+
+
+## Shows an aim chosen elsewhere: the other player's, online, or the one a
+## remote throw was requested with, just before the host throws it.
+func apply_aim(yaw: float, elevation: float, offset: float) -> void:
+	if _busy:
+		return
+	_yaw_degrees = clampf(yaw, -aim_cone_degrees, aim_cone_degrees)
+	_elevation_degrees = clampf(elevation, min_elevation_degrees, max_elevation_degrees)
+	set_line_offset(offset)
+	_update_camera()
+
+
+func is_throwing() -> bool:
+	return _busy
+
+
+## Online client: a throw is under way on the host; the karttu will move
+## by snapshot. Plays the part of the local launch (the whoosh).
+func begin_remote_throw() -> void:
+	_busy = true
+	_swinging = false
+	_gauge_bar.hide()
+	thrown.emit()
+
+
+## The swing was released at `gauge_degrees`: throw, or online as the
+## client ask the host to.
+func release_swing(gauge_degrees: float) -> void:
+	if _busy:
+		return
+	if remote_throws:
+		_busy = true
+		throw_requested.emit(gauge_degrees)
+	else:
+		_throw(gauge_degrees)
+
+
 ## The thrower's right along the line (it runs across the court).
 func _line_right() -> Vector3:
 	return _forward_direction.cross(Vector3.UP)
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not enabled:
+	if not enabled or suspended:
+		_stepping = false
 		return
 
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
@@ -175,7 +226,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				_swinging = false
 				var gauge := _gauge_degrees
 				_gauge_bar.hide()
-				_throw(gauge)
+				release_swing(gauge)
 	elif event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
 		var step := -zoom_step_degrees if event.button_index == MOUSE_BUTTON_WHEEL_UP else zoom_step_degrees
 		_fov_degrees = clampf(_fov_degrees + step, min_fov_degrees, max_fov_degrees)
@@ -183,6 +234,9 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _process(delta: float) -> void:
+	if _swinging and (not enabled or suspended):
+		_swinging = false  # turn ended or menu opened mid-swing
+		_gauge_bar.hide()
 	if _swinging:
 		_gauge_degrees += (180.0 / swing_seconds) * delta
 		if _gauge_degrees >= 180.0:

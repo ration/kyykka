@@ -90,6 +90,12 @@ conventions.
 
 - [ ] **Phase 7 — Local multiplayer (hot-seat)**
   - Player/team switching, per-player controls
+  - [x] Team names (main menu) and turn cues (red target kyykkä, team
+    colours, turn banner)
+  - [x] Online play over direct IP, host-authoritative, no server
+    (`scripts/net/`; UPnP, or a VPN like Tailscale when that fails).
+    Checked headlessly with `tools/net_selftest.gd`; not yet played
+    between two real machines
 
 - [ ] **Phase 8 — Audio & polish**
   - [x] Impact SFX — procedurally synthesised (`scripts/audio/`, no audio

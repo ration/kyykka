@@ -141,7 +141,7 @@ func _refresh() -> void:
 		_kyykka_label.text = ""
 		return
 
-	_turn_label.text = "%s to throw" % attack.attacking_team.team_name
+	_turn_label.text = _turn_text()
 	_turn_label.add_theme_color_override("font_color", _turn_color())
 	_karttu_label.text = "Karttu %d / %d" % [
 		attack.karttu_budget - attack.karttu_used, attack.karttu_budget,
@@ -152,6 +152,14 @@ func _refresh() -> void:
 	]
 
 
+## "<team> to throw", or online "Your turn: <team>" when it's this machine's.
+func _turn_text() -> String:
+	var team_name := match_controller.current_attack.attacking_team.team_name
+	if Net.is_online() and match_controller.is_local_turn():
+		return "Your turn: %s" % team_name
+	return "%s to throw" % team_name
+
+
 func _turn_color() -> Color:
 	return GameMode.TEAM_COLORS[0 if match_controller.is_team_a_turn() else 1]
 
@@ -160,7 +168,7 @@ func _turn_color() -> Color:
 func _show_turn_banner() -> void:
 	if match_controller.current_attack == null or match_controller.kyykka_match.is_finished():
 		return
-	_banner.text = "%s to throw" % match_controller.current_attack.attacking_team.team_name
+	_banner.text = _turn_text()
 	_banner.add_theme_color_override("font_color", _turn_color())
 	if _banner_tween:
 		_banner_tween.kill()

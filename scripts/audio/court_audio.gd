@@ -18,6 +18,10 @@ extends Node3D
 ## on a WorkerThreadPool task (then kept in SoundSynth's cache); a cheer
 ## before they're ready is just silent.
 
+## An impact sound was played (the host sends these to an online client,
+## whose own bodies don't collide — see OnlineLink).
+signal impact_played(kind: int, strength: float, at: Vector3)
+
 enum Kind { KARTTU_HIT, KYYKKA_CLACK, KARTTU_LAND, KYYKKA_LAND }
 
 const IMPACT_THRESHOLD := 0.4  ## m/s of velocity change; below this is silent
@@ -47,6 +51,11 @@ const CHEER_VARIANTS := 2
 
 var match_controller: MatchController
 var crowd: Crowd  ## optional; its cheers play here
+## Online client: bodies are moved by the host's snapshots, so impacts
+## come from play_impact() calls instead of local contacts, and the slide
+## follows the karttu's movement rather than its (zero) velocity.
+var remote_physics: bool = false
+var _last_karttu_position := Vector3.ZERO
 
 var _impact_streams: Dictionary = {}  ## Kind -> Array[AudioStreamWAV]
 var _pool: Array[AudioStreamPlayer3D] = []
@@ -175,6 +184,8 @@ func _watch(body: SettlingBody) -> void:
 
 
 func _on_impacted(other: Node, strength: float, body: SettlingBody) -> void:
+	if remote_physics:
+		return
 	var kind := _kind_for(body, other)
 	if kind < 0:
 		return
@@ -196,7 +207,7 @@ func _kind_for(body: SettlingBody, other: Node) -> int:
 	return -1
 
 
-func _physics_process(_delta: float) -> void:
+func _physics_process(delta: float) -> void:
 	var now := Time.get_ticks_msec()
 	for key in _pending:
 		var report: Array = _pending[key]
@@ -205,12 +216,15 @@ func _physics_process(_delta: float) -> void:
 		if now - _last_played_ms.get(key, -PAIR_COOLDOWN_MS) < PAIR_COOLDOWN_MS:
 			continue
 		_last_played_ms[key] = now
-		_play_impact(report[0], report[1], report[2])
+		play_impact(report[0], report[1], report[2])
 	_pending.clear()
-	_update_slide()
+	_update_slide(delta)
 
 
-func _play_impact(kind: Kind, strength: float, at: Vector3) -> void:
+func play_impact(kind: int, strength: float, at: Vector3) -> void:
+	if not _impact_streams.has(kind):
+		return
+	impact_played.emit(kind, strength, at)
 	var player := _free_player()
 	var variants: Array = _impact_streams[kind]
 	player.stream = variants[randi() % variants.size()]
@@ -242,10 +256,19 @@ static func impact_volume_db(strength: float, full_strength: float) -> float:
 
 ## Fades the slide loop in and out with the karttu's speed while it's in
 ## contact with the ground (not while it's airborne or knocking kyykkä).
-func _update_slide() -> void:
+func _update_slide(delta: float) -> void:
 	var target_db := SILENT_DB
 	var speed := 0.0
-	if _karttu != null and not _karttu.freeze:
+	if _karttu != null and remote_physics:
+		var moved := _karttu.global_position - _last_karttu_position
+		_last_karttu_position = _karttu.global_position
+		speed = Vector2(moved.x, moved.z).length() / delta
+		if speed > 30.0:  # reset to the thrower between turns, not a slide
+			speed = 0.0
+		if _karttu.global_position.y < 0.06 and speed > SLIDE_MIN_SPEED:
+			target_db = linear_to_db(clampf(speed / SLIDE_FULL_SPEED, MIN_GAIN, 1.0)) - 6.0
+		_slide_player.global_position = _karttu.global_position
+	elif _karttu != null and not _karttu.freeze:
 		speed = Vector2(_karttu.linear_velocity.x, _karttu.linear_velocity.z).length()
 		var on_ground := _karttu.get_colliding_bodies().any(func(b: Node) -> bool: return b is StaticBody3D)
 		if on_ground and speed > SLIDE_MIN_SPEED:
