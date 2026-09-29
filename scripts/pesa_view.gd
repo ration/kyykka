@@ -33,9 +33,32 @@ extends Node3D
 ## needs real slack, not just enough to clear the margin on paper.
 @export var spawn_inward_offset: float = 0.15
 
+const TARGET_COLOR := Color(0.78, 0.13, 0.1)  ## painted wood
+
+static var _target_material: StandardMaterial3D
+var _wood_material: Material  ## the kyykkä scene's own, restored by set_targeted(false)
+
 
 func _ready() -> void:
 	_spawn_pieces()
+
+
+## Paints this pesä's kyykkä red while they're the ones being thrown at,
+## so it's obvious at a glance which end — and so whose turn — it is.
+func set_targeted(targeted: bool) -> void:
+	if _target_material == null:
+		_target_material = StandardMaterial3D.new()
+		_target_material.albedo_color = TARGET_COLOR
+		_target_material.roughness = 0.8
+		# A faint glow keeps them reading red from the far end, even in shade.
+		_target_material.emission_enabled = true
+		_target_material.emission = TARGET_COLOR
+		_target_material.emission_energy_multiplier = 0.35
+	for piece in get_children():
+		var mesh: MeshInstance3D = piece.get_node("MeshInstance3D")
+		if _wood_material == null:
+			_wood_material = mesh.material_override
+		mesh.material_override = _target_material if targeted else _wood_material
 
 
 ## Converts a world position into (x, depth) relative to this pesä, where

@@ -41,13 +41,14 @@ var last_throw_result: ThrowResult  ## the most recent throw's effect, for attac
 
 
 func _ready() -> void:
-	kyykka_match = KyykkaMatch.new(Team.new("Team A"), Team.new("Team B"))
+	kyykka_match = KyykkaMatch.new(Team.new(GameMode.team_names[0]), Team.new(GameMode.team_names[1]))
 	_start_half()
 
 	thrower = ThrowController.new()
 	thrower.name = "ThrowController"
 	thrower.karttu_scene = karttu_scene
 	thrower.camera = camera
+	thrower.line_half_width = court_width / 2.0
 	thrower.throw_settled.connect(_on_throw_settled)
 	add_child(thrower)
 	_configure_thrower_for_current_attack()
@@ -88,11 +89,16 @@ func _build_pesa_view(z: float, depth_direction: float) -> PesaView:
 	return view
 
 
+## Also paints the kyykkä being attacked red (see PesaView.set_targeted()),
+## so the end changing colour shows whose turn it is.
 func _configure_thrower_for_current_attack() -> void:
-	if current_attack == current_half.attack_by_team_a:
+	var team_a := is_team_a_turn()
+	if team_a:
 		thrower.configure(Vector3(0, 0, near_pesa_z), Vector3(0, 0, 1), far_pesa_view)
 	else:
 		thrower.configure(Vector3(0, 0, far_pesa_z), Vector3(0, 0, -1), near_pesa_view)
+	far_pesa_view.set_targeted(team_a)
+	near_pesa_view.set_targeted(not team_a)
 	print("%s's turn" % current_attack.attacking_team.team_name)
 	turn_changed.emit()
 
@@ -127,8 +133,15 @@ func _advance_turn() -> void:
 	_configure_thrower_for_current_attack()
 
 
+## Team A attacks the far pesä, team B the near one.
+func is_team_a_turn() -> bool:
+	return current_attack == current_half.attack_by_team_a
+
+
 func _end_match() -> void:
 	thrower.enabled = false
+	far_pesa_view.set_targeted(false)
+	near_pesa_view.set_targeted(false)
 	var team_a := kyykka_match.team_a
 	var team_b := kyykka_match.team_b
 	var winner := kyykka_match.winner()

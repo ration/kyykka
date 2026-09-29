@@ -20,6 +20,12 @@ extends Node3D
 ## it lands, so it hits flush (parallel to the stack again — see
 ## SpinCalculator); releasing early/late under/over-rotates it. Running
 ## the gauge past 180 without releasing cancels the swing.
+##
+## Holding the right mouse button turns horizontal mouse motion into
+## stepping sideways along the throwing line (the thrower's own pesä front
+## line) instead of aiming; there's no way off the line, so no foot
+## faults. Locked during the swing and while a throw is in flight, and
+## reset to the middle of the line every turn.
 
 signal throw_settled
 signal thrown  ## the karttu has just left the thrower's hand
@@ -31,6 +37,8 @@ signal swing_cancelled  ## the gauge ran past 180 without a release
 
 @export var aim_cone_degrees: float = 25.0  ## how far left/right of forward you can aim
 @export var mouse_sensitivity: float = 0.2  ## degrees per pixel of mouse motion
+@export var step_sensitivity: float = 0.006  ## metres per pixel of right-drag along the line
+@export var line_half_width: float = 2.5  ## how far either side of the line's middle the thrower can step (the court's half width)
 
 @export var swing_seconds: float = 1.0  ## time for the gauge to sweep 0 -> 180
 @export var throw_speed: float = 16.0  ## fixed for now; variable power is a later feature
@@ -57,6 +65,9 @@ var _yaw_degrees: float = 0.0
 var _elevation_degrees: float = 0.0  ## current camera pitch; reset to launch_elevation_degrees in configure()
 var _fov_degrees: float = 70.0  ## current zoom level; reset to default_fov_degrees in configure()
 var _forward_direction: Vector3 = Vector3(0, 0, 1)  ## yaw=0 aim direction; set via configure()
+var _line_middle: Vector3  ## where the thrower stands with no sideways step; set via configure()
+var _line_offset: float = 0.0  ## metres to the thrower's right of _line_middle
+var _stepping: bool = false  ## right mouse button held
 var _karttu: Karttu
 var _busy: bool = false
 
@@ -88,6 +99,8 @@ func _ready() -> void:
 ## first turn, and again whenever the active side changes.
 func configure(p_position: Vector3, p_forward: Vector3, p_watch_root: Node3D) -> void:
 	position = p_position
+	_line_middle = p_position
+	_line_offset = 0.0
 	_forward_direction = p_forward.normalized()
 	watch_root = p_watch_root
 	_yaw_degrees = 0.0
@@ -107,11 +120,36 @@ func _reset_karttu() -> void:
 	_karttu.global_rotation = Vector3.ZERO
 
 
+## Stands the thrower `metres` to their right of the throwing line's
+## middle (negative: to the left), clamped to the line; the karttu in hand
+## and the camera come along. Ignored mid-swing and mid-throw.
+func set_line_offset(metres: float) -> void:
+	if _busy or _swinging:
+		return
+	_line_offset = clampf(metres, -line_half_width, line_half_width)
+	position = _line_middle + _line_right() * _line_offset
+	_karttu.global_position = global_position + Vector3.UP * karttu_rest_height
+	_update_camera()
+
+
+func line_offset() -> float:
+	return _line_offset
+
+
+## The thrower's right along the line (it runs across the court).
+func _line_right() -> Vector3:
+	return _forward_direction.cross(Vector3.UP)
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if not enabled:
 		return
 
-	if event is InputEventMouseMotion and not _busy:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
+		_stepping = event.pressed
+	elif event is InputEventMouseMotion and _stepping:
+		set_line_offset(_line_offset + event.relative.x * step_sensitivity)
+	elif event is InputEventMouseMotion and not _busy:
 		_yaw_degrees = clampf(
 			_yaw_degrees - event.relative.x * mouse_sensitivity,
 			-aim_cone_degrees,

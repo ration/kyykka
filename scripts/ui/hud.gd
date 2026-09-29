@@ -2,6 +2,9 @@ class_name HUD
 extends CanvasLayer
 ## In-game overlay: running match score, whose turn it is, karttu
 ## remaining in the current attack, and the target pesä's kyykkä count.
+## Whose turn it is shows in that team's colour (GameMode.TEAM_COLORS),
+## with a big "<team> to throw" banner flashing up at every turn change —
+## hot-seat players swap at the keyboard, so it has to be unmissable.
 ## Built in code to match how the rest of this project constructs UI
 ## (see court.gd / throw_controller.gd's swing gauge).
 ##
@@ -16,6 +19,10 @@ var _turn_label: Label
 var _karttu_label: Label
 var _kyykka_label: Label
 var _half_label: Label
+var _banner: Label
+var _banner_tween: Tween
+
+const BANNER_SECONDS := 1.6
 
 
 func _ready() -> void:
@@ -23,9 +30,11 @@ func _ready() -> void:
 	_build_ui()
 	match_controller.half_started.connect(func(_n: int) -> void: _refresh())
 	match_controller.turn_changed.connect(_refresh)
+	match_controller.turn_changed.connect(_show_turn_banner)
 	match_controller.attack_scored.connect(_refresh)
 	match_controller.match_finished.connect(_refresh)
 	_refresh()
+	_show_turn_banner()  # the first turn started before we were listening
 
 
 func _build_ui() -> void:
@@ -80,6 +89,18 @@ func _build_ui() -> void:
 	_kyykka_label = _label("")
 	right_box.add_child(_kyykka_label)
 
+	_banner = _label("")
+	_banner.anchor_left = 0.0
+	_banner.anchor_right = 1.0
+	_banner.anchor_top = 0.28
+	_banner.anchor_bottom = 0.28
+	_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_banner.add_theme_font_size_override("font_size", 52)
+	_banner.add_theme_constant_override("outline_size", 10)
+	_banner.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+	_banner.modulate.a = 0.0
+	add_child(_banner)
+
 
 func _panel() -> PanelContainer:
 	var panel := PanelContainer.new()
@@ -115,11 +136,13 @@ func _refresh() -> void:
 	var attack := match_controller.current_attack
 	if attack == null or m.is_finished():
 		_turn_label.text = "Match over"
+		_turn_label.add_theme_color_override("font_color", Color.WHITE)
 		_karttu_label.text = ""
 		_kyykka_label.text = ""
 		return
 
 	_turn_label.text = "%s to throw" % attack.attacking_team.team_name
+	_turn_label.add_theme_color_override("font_color", _turn_color())
 	_karttu_label.text = "Karttu %d / %d" % [
 		attack.karttu_budget - attack.karttu_used, attack.karttu_budget,
 	]
@@ -127,6 +150,24 @@ func _refresh() -> void:
 	_kyykka_label.text = "Kyykkä  in %d · on line %d · out %d" % [
 		pesa.in_square, pesa.on_line, pesa.removed,
 	]
+
+
+func _turn_color() -> Color:
+	return GameMode.TEAM_COLORS[0 if match_controller.is_team_a_turn() else 1]
+
+
+## Fades the banner in, holds it, and fades it out again.
+func _show_turn_banner() -> void:
+	if match_controller.current_attack == null or match_controller.kyykka_match.is_finished():
+		return
+	_banner.text = "%s to throw" % match_controller.current_attack.attacking_team.team_name
+	_banner.add_theme_color_override("font_color", _turn_color())
+	if _banner_tween:
+		_banner_tween.kill()
+	_banner_tween = create_tween()
+	_banner_tween.tween_property(_banner, "modulate:a", 1.0, 0.15)
+	_banner_tween.tween_interval(BANNER_SECONDS)
+	_banner_tween.tween_property(_banner, "modulate:a", 0.0, 0.4)
 
 
 ## KyykkaMatch.total_score() asserts every attack has finished, since a

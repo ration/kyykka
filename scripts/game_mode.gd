@@ -2,7 +2,8 @@ extends Node
 ## Autoload singleton (registered as `GameMode` in project.godot). Holds
 ## the current season chosen from the main menu so the court and karttu
 ## can look at it during their own _ready() without needing a scene-arg
-## channel through change_scene_to_file().
+## channel through change_scene_to_file(). Also holds the team names typed
+## in on the main menu, which carry over to Rematches.
 ##
 ## Summer keeps the current sand-court defaults; winter uses a snow-lit
 ## palette and lowers karttu friction so the karttu keeps sliding across
@@ -14,6 +15,26 @@ extends Node
 enum Mode { SUMMER, WINTER }
 
 var current: Mode = Mode.SUMMER
+
+const DEFAULT_TEAM_NAMES: Array[String] = ["Team A", "Team B"]
+const MAX_TEAM_NAME_LENGTH := 20
+## Team A, team B: the HUD's turn cues and the name dialog's swatches.
+const TEAM_COLORS: Array[Color] = [Color(0.35, 0.62, 1.0), Color(1.0, 0.78, 0.2)]
+
+var team_names: Array[String] = DEFAULT_TEAM_NAMES.duplicate()
+
+
+## Stores the names typed in for team A and B: trimmed, capped at
+## MAX_TEAM_NAME_LENGTH, blank falling back to the default, and a
+## duplicate of A's name numbered so the two can be told apart.
+func set_team_names(a: String, b: String) -> void:
+	var names: Array[String] = []
+	for i in range(2):
+		var trimmed := ([a, b][i] as String).strip_edges().left(MAX_TEAM_NAME_LENGTH)
+		names.append(trimmed if trimmed != "" else DEFAULT_TEAM_NAMES[i])
+	if names[0].to_lower() == names[1].to_lower():
+		names[1] = names[1].left(MAX_TEAM_NAME_LENGTH - 2) + " 2"
+	team_names = names
 
 
 func mode_name() -> String:
