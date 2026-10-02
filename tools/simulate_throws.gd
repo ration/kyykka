@@ -7,7 +7,7 @@ extends SceneTree
 ## playtesting after every tweak.
 ##
 ## Usage:
-##   godot --headless --path . --script tools/simulate_throws.gd -- [count] [summer|winter]
+##   godot --headless --path . --script tools/simulate_throws.gd -- [count] [summer|winter|tower]
 ## (default count: 16, comfortably within one half's 10-karttu-per-side
 ## budget so turn/half rollover doesn't need special handling)
 ##
@@ -36,10 +36,8 @@ func _initialize() -> void:
 	# Set before instantiating the court: court.gd and karttu.gd read the
 	# mode in their own _ready().
 	var game_mode := get_root().get_node("GameMode")
-	if args.size() > 1 and args[1].to_lower() == "winter":
-		game_mode.current = game_mode.Mode.WINTER
-	else:
-		game_mode.current = game_mode.Mode.SUMMER
+	var requested: String = args[1].to_upper() if args.size() > 1 else "SUMMER"
+	game_mode.current = game_mode.Mode.get(requested, game_mode.Mode.SUMMER)
 	print("mode: %s" % game_mode.mode_name())
 
 	# load(), not preload(): preload compiles court.gd/karttu.gd along with

@@ -26,3 +26,14 @@ func test_duplicate_names_are_told_apart() -> void:
 	GameMode.set_team_names("Kylteri", "kylteri")
 	assert_eq(GameMode.team_names[0], "Kylteri")
 	assert_eq(GameMode.team_names[1], "kylteri 2")
+
+
+func test_tower_plays_like_summer() -> void:
+	var saved := GameMode.current
+	GameMode.current = GameMode.Mode.TOWER
+	assert_eq(GameMode.mode_name(), "Tower")
+	var tower := [GameMode.karttu_friction(), GameMode.karttu_landed_linear_damp(), GameMode.karttu_landed_angular_damp()]
+	GameMode.current = GameMode.Mode.SUMMER
+	var summer := [GameMode.karttu_friction(), GameMode.karttu_landed_linear_damp(), GameMode.karttu_landed_angular_damp()]
+	GameMode.current = saved
+	assert_eq(tower, summer)

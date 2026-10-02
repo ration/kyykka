@@ -7,12 +7,14 @@ extends Node
 ##
 ## Summer keeps the current sand-court defaults; winter uses a snow-lit
 ## palette and lowers karttu friction so the karttu keeps sliding across
-## the pesä after landing (real winter kyykkä on ice).
+## the pesä after landing (real winter kyykkä on ice). Tower puts a summer
+## match on a painted court on a skyscraper roof (see TowerLandscape); its
+## karttu plays like summer.
 ## Only the karttu is affected — the kyykkä pieces still use the sturdy
 ## damping they need to stay upright and settle without rocking on
 ## BoxShape3D corners (see the corner-balance note in CLAUDE.md).
 
-enum Mode { SUMMER, WINTER }
+enum Mode { SUMMER, WINTER, TOWER }
 
 var current: Mode = Mode.SUMMER
 
@@ -38,7 +40,12 @@ func set_team_names(a: String, b: String) -> void:
 
 
 func mode_name() -> String:
-	return "Winter" if current == Mode.WINTER else "Summer"
+	match current:
+		Mode.WINTER:
+			return "Winter"
+		Mode.TOWER:
+			return "Tower"
+	return "Summer"
 
 
 # Karttu tuning ---------------------------------------------------------------
@@ -69,16 +76,27 @@ func karttu_landed_angular_damp() -> float:
 
 # Ground appearance -----------------------------------------------------------
 # Summer: the two ends of the court's low-frequency sand-noise texture (see
-# court.gd's _build_ground_texture). Winter: the hollow/drift colours of the
+# court.gd's _build_ground_texture). Tower: the same texture as a green
+# painted sports surface on the roof. Winter: the hollow/drift colours of the
 # court's packed snow in shaders/ground.gdshader (see WinterLandscape), kept
 # close and below white so the court reads as trodden snow, not white paint.
 
 func ground_low_color() -> Color:
-	return Color(0.80, 0.83, 0.89) if current == Mode.WINTER else Color(0.55, 0.48, 0.34)
+	match current:
+		Mode.WINTER:
+			return Color(0.80, 0.83, 0.89)
+		Mode.TOWER:
+			return Color(0.17, 0.36, 0.30)
+	return Color(0.55, 0.48, 0.34)
 
 
 func ground_high_color() -> Color:
-	return Color(0.90, 0.91, 0.93) if current == Mode.WINTER else Color(0.82, 0.72, 0.52)
+	match current:
+		Mode.WINTER:
+			return Color(0.90, 0.91, 0.93)
+		Mode.TOWER:
+			return Color(0.22, 0.43, 0.35)
+	return Color(0.82, 0.72, 0.52)
 
 
 ## White lines vanish on snow, so winter courts are marked in red instead.

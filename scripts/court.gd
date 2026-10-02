@@ -24,10 +24,18 @@ func _ready() -> void:
 	var hw := court_width / 2.0
 	var hl := court_length / 2.0
 	line_color = GameMode.court_line_color()
+	Music.play(Music.track_for_mode(GameMode.current))
 	var near_pesa_z := -hl + pesa_size
 	var far_pesa_z := hl - pesa_size
 
-	var landscape: Landscape = WinterLandscape.new() if GameMode.current == GameMode.Mode.WINTER else SummerLandscape.new()
+	var landscape: Landscape
+	match GameMode.current:
+		GameMode.Mode.WINTER:
+			landscape = WinterLandscape.new()
+		GameMode.Mode.TOWER:
+			landscape = TowerLandscape.new()
+		_:
+			landscape = SummerLandscape.new()
 	landscape.apply_atmosphere($WorldEnvironment, $Sun)
 	add_child(landscape)
 

@@ -18,6 +18,9 @@ conventions.
   winter a snowfield (and packed-snow court) with spruce forest, low sun
   and snowfall, with red court lines; summer a grass field with birch
   forest around the sand court. Both have rolling hills and a sky/fog setup.
+  A third mode, **Tower**, puts a summer match on a green painted court on a
+  skyscraper roof (160 m up, parapet and rooftop plant) in a procedural
+  metropolis under a late-afternoon sun.
 
 - [x] **Phase 1 — Rules engine (no visuals)**
   - Data model: `Team`, `Pesa`, `ThrowResult`, `Attack`, `Half`, `KyykkaMatch`
@@ -101,8 +104,10 @@ conventions.
   - [x] Impact SFX — procedurally synthesised (`scripts/audio/`, no audio
     files): karttu/kyykkä knocks, season-specific ground landings and
     karttu slide, throw whoosh, missed-swing, score chime, match-end jingle
-  - [x] Music — a looping Eläkeläiset-style humppa synthesised at boot (`scripts/audio/music_synth.gd`,
-    played by the `Music` autoload, toggle in the pause menu)
+  - [x] Music — synthesised at boot, one looping track per screen: kantele folk
+    on the main menu, steel-pan calypso in summer, Eläkeläiset-style humppa in
+    winter, house on the tower (`scripts/audio/*_music.gd`, `music_synth.gd`;
+    played and crossfaded by the `Music` autoload, toggle in the pause menu)
   - [x] Spectators — student crowd in guild overalls that cheers (audibly,
     synthesised voices + clapping) at scoring throws, and swigs from cans
     (`scripts/crowd/`)

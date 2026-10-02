@@ -4,7 +4,7 @@ extends SceneTree
 ## few seconds); --headless renders nothing.
 ##
 ## Usage:
-##   godot --path . --resolution 1280x720 --script tools/screenshot.gd -- [summer|winter] [out_dir]
+##   godot --path . --resolution 1280x720 --script tools/screenshot.gd -- [summer|winter|tower] [out_dir]
 ## (default out_dir: user://screenshots)
 ##
 ## Like tools/simulate_throws.gd, stays untyped against game classes and
@@ -27,7 +27,7 @@ func _initialize() -> void:
 	DirAccess.make_dir_recursive_absolute(out_dir)
 
 	var game_mode := get_root().get_node("GameMode")
-	game_mode.current = game_mode.Mode.WINTER if mode_name == "winter" else game_mode.Mode.SUMMER
+	game_mode.current = game_mode.Mode.get(mode_name.to_upper(), game_mode.Mode.SUMMER)
 	var court: Node = load("res://scenes/court.tscn").instantiate()
 	get_root().add_child(court)
 	# A scene added during _initialize() only runs _ready() on the first frame.

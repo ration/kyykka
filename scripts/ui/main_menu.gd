@@ -25,6 +25,7 @@ func _ready() -> void:
 	# Reset in case Return-to-menu came from a paused match.
 	get_tree().paused = false
 	Net.leave()  # back from an online match (or an abandoned lobby)
+	Music.play("menu")
 	_build_ui()
 	Net.lobby_status.connect(_on_lobby_status)
 	Net.lobby_failed.connect(_on_lobby_failed)
@@ -44,6 +45,7 @@ func _build_ui() -> void:
 	_menu_box.add_child(_subtitle("Hot-seat match, two teams, two halves"))
 	_menu_box.add_child(_menu_button("Start Summer Match", _choose_season.bind(GameMode.Mode.SUMMER)))
 	_menu_box.add_child(_menu_button("Start Winter Match", _choose_season.bind(GameMode.Mode.WINTER)))
+	_menu_box.add_child(_menu_button("Start Tower Match", _choose_season.bind(GameMode.Mode.TOWER)))
 	_menu_box.add_child(_menu_button("Play Online", _show_online))
 	_menu_box.add_child(_menu_button("Quit", _quit_game))
 
@@ -84,9 +86,9 @@ func _build_ui() -> void:
 	_online_box.add_child(_online_name)
 	var host_row := HBoxContainer.new()
 	host_row.add_theme_constant_override("separation", 10)
-	for mode in [GameMode.Mode.SUMMER, GameMode.Mode.WINTER]:
-		var host_button := _menu_button("Host Summer" if mode == GameMode.Mode.SUMMER else "Host Winter", _host.bind(mode))
-		host_button.custom_minimum_size = Vector2(145, 44)
+	for mode in [GameMode.Mode.SUMMER, GameMode.Mode.WINTER, GameMode.Mode.TOWER]:
+		var host_button := _menu_button("Host " + ["Summer", "Winter", "Tower"][mode], _host.bind(mode))
+		host_button.custom_minimum_size = Vector2(130, 44)
 		host_row.add_child(host_button)
 		_online_buttons.append(host_button)
 	_online_box.add_child(host_row)

@@ -292,7 +292,7 @@ static func _add_note(buf: PackedFloat32Array, table: PackedFloat32Array, freq: 
 			env *= 1.0 + tremolo * sin(tremolo_step * (offset + i))
 		var v := 0.0
 		for r in range(incs.size()):
-			v += table[int(phases[r])]
+			v += table[int(phases[r]) & (TABLE_SIZE - 1)]  # float32 storage can round a phase up to TABLE_SIZE
 			phases[r] = fmod(phases[r] + incs[r], TABLE_SIZE)
 		buf[posmod(offset + i, size)] += env * v
 		fade *= k
@@ -345,3 +345,81 @@ static func _add_room(buf: PackedFloat32Array) -> void:
 				comb[i] = buf[j] + 0.45 * comb[j]
 		SoundSynth._mix(wet, comb, 1.0)
 	SoundSynth._mix(buf, SoundSynth._lowpass(wet, 3000.0), 0.12)
+
+
+# Shared by the other tracks (MenuMusic, SummerMusic, TowerMusic) -------------
+
+## A sawtooth wavetable with `harmonics` partials: keep
+## harmonics * the highest note's frequency under 12 kHz (Nyquist).
+static func _saw_table(harmonics: int) -> PackedFloat32Array:
+	var amps: Array[float] = []
+	for h in range(harmonics):
+		amps.append(1.0 / (h + 1))
+	return _wavetable(amps)
+
+
+## A Karplus-Strong plucked string, `seconds` long: a burst of noise
+## (lowpassed by `brightness`, 0..1) circulating in a delay line one period
+## long, averaged every pass so it mellows and dies away (`sustain` just
+## under 1 is the per-pass loss). A first-order allpass supplies the
+## fractional part of the period, or high notes go audibly out of tune.
+static func pluck(freq: float, seconds: float, brightness: float, sustain: float, rng: RandomNumberGenerator) -> PackedFloat32Array:
+	var rate := float(SoundSynth.MIX_RATE)
+	var period := rate / freq - 0.5  # the averaging filter adds half a sample
+	var n := int(floor(period))
+	var frac := period - n
+	if frac < 0.1:  # keeps the allpass coefficient away from 1
+		n -= 1
+		frac += 1.0
+	var c := (1.0 - frac) / (1.0 + frac)
+	var line := PackedFloat32Array()
+	line.resize(n)
+	var low := 0.0
+	var mean := 0.0
+	for i in range(n):
+		low += brightness * (rng.randf_range(-1.0, 1.0) - low)
+		line[i] = low
+		mean += low / n
+	for i in range(n):
+		line[i] -= mean
+	var out := SoundSynth._silence(seconds)
+	var idx := 0
+	var ap_in := 0.0
+	var ap_out := 0.0
+	var fade_from := int(out.size() * 0.8)
+	for i in range(out.size()):
+		var current := line[idx]
+		var averaged := 0.5 * (current + line[(idx + 1) % n]) * sustain
+		ap_out = c * averaged + ap_in - c * ap_out
+		ap_in = averaged
+		line[idx] = ap_out
+		var env := 1.0 if i < fade_from else 1.0 - float(i - fade_from) / (out.size() - fade_from)
+		out[i] = current * env
+		idx = (idx + 1) % n
+	return out
+
+
+## One `table` note rendered on its own (start 0), for tracks that cache a
+## note once and mix it in wherever it's played.
+static func render_note(table: PackedFloat32Array, freq: float, detunes: Array, hold: float, attack: float, release: float, decay: float, rng: RandomNumberGenerator) -> PackedFloat32Array:
+	var buf := SoundSynth._silence(hold + release + 0.01)
+	_add_note(buf, table, freq, detunes, 0.0, hold, attack, release, decay, 1.0, rng)
+	return buf
+
+
+## A hall: parallel feedback delays (seconds), lowpassed and mixed back in
+## at `gain`. Two passes so the echoes of the end wrap round to the start.
+static func _add_echoes(buf: PackedFloat32Array, delays: Array, feedback: float, cutoff: float, gain: float) -> void:
+	var size := buf.size()
+	var wet := PackedFloat32Array()
+	wet.resize(size)
+	for delay_s in delays:
+		var comb := PackedFloat32Array()
+		comb.resize(size)
+		var d := int(delay_s * SoundSynth.MIX_RATE)
+		for _pass in range(2):
+			for i in range(size):
+				var j := posmod(i - d, size)
+				comb[i] = buf[j] + feedback * comb[j]
+		SoundSynth._mix(wet, comb, 1.0 / delays.size())
+	SoundSynth._mix(buf, SoundSynth._svf(wet, cutoff, 1.0, false), gain)
