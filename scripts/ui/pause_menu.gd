@@ -87,11 +87,18 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not enabled:
 		return
 	if event.is_action_pressed("ui_cancel"):
-		if _panel.visible:
-			_resume()
-		else:
-			_pause()
+		toggle()
 		get_viewport().set_input_as_handled()
+
+
+## Opens or closes the menu: Esc, or TouchControls' pause button.
+func toggle() -> void:
+	if not enabled:
+		return
+	if _panel.visible:
+		_resume()
+	else:
+		_pause()
 
 
 func _pause() -> void:
@@ -104,7 +111,8 @@ func _pause() -> void:
 func _resume() -> void:
 	_panel.hide()
 	get_tree().paused = false
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	if not TouchControls.is_touch_device():
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	toggled.emit(false)
 
 

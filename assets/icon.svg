@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <rect width="256" height="256" rx="48" fill="#b8231c"/>
+  <!-- snow/sand ground -->
+  <rect x="0" y="186" width="256" height="70" rx="0" fill="#e9dcc0"/>
+  <rect x="0" y="186" width="256" height="6" fill="#ffffff"/>
+  <!-- a stacked pair of kyykkä -->
+  <g fill="#8a5a33" stroke="#4a2e18" stroke-width="5">
+    <rect x="150" y="128" width="46" height="58" rx="6"/>
+    <rect x="150" y="70" width="46" height="58" rx="6"/>
+  </g>
+  <ellipse cx="173" cy="70" rx="23" ry="7" fill="#b07a4a" stroke="#4a2e18" stroke-width="4"/>
+  <!-- the karttu flying in, spinning -->
+  <g transform="rotate(-28 92 112)">
+    <rect x="20" y="100" width="150" height="24" rx="10" fill="#c48a52" stroke="#4a2e18" stroke-width="5"/>
+    <rect x="20" y="105" width="34" height="14" rx="6" fill="#7a4a24"/>
+  </g>
+  <path d="M40 60 q20 -20 50 -10" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round" opacity="0.8"/>
+  <path d="M30 80 q22 -18 46 -8" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" opacity="0.6"/>
+</svg>

@@ -49,7 +49,21 @@ Ready-to-play builds for Linux, Windows and macOS are built automatically from e
 - **Linux** — unzip `kyykka-linux.zip` and run `./kyykka.x86_64` (`chmod +x kyykka.x86_64` first if your unzip tool dropped the executable bit).
 - **macOS** — unzip `kyykka-macos.zip` and move `Kyykkä.app` to Applications. The app isn't signed or notarised, so the first time right-click it → **Open** → **Open** (or run `xattr -dr com.apple.quarantine /Applications/Kyykkä.app`).
 
-Any graphics card with OpenGL 3.3 (Linux/Windows) or Metal/OpenGL (macOS) should run it.
+- **Android** — download `kyykka-android.apk` on the phone and open it; Android will ask you to allow installing apps from your browser or file manager the first time. It's a debug-signed build for sideloading, not from the Play Store.
+
+Any graphics card with OpenGL 3.3 (Linux/Windows) or Metal/OpenGL (macOS) should run it; on Android, any phone with OpenGL ES 3.
+
+### Controls
+
+| | Desktop | Touchscreen |
+|---|---|---|
+| Aim | move the mouse | drag a finger anywhere |
+| Swing / throw | hold the left button, release to throw | hold **THROW**, release to throw |
+| Step along the line | hold the right button and move sideways | drag along the **STEP** pad |
+| Zoom | scroll wheel | pinch |
+| Pause | Esc | the **II** button |
+
+Release the swing when the gauge is in the middle for a flush hit; running it past the end cancels the swing.
 
 ## Development
 
@@ -102,7 +116,9 @@ make export PRESET=Windows OUT=builds/windows/kyykka.exe
 make export PRESET=macOS   OUT=builds/macos/kyykka-macos.zip
 ```
 
-You don't normally need to: `.github/workflows/build.yml` does this on GitHub Actions. On every push to `main` (and on pull requests) it runs the tests and exports all three builds, uploading them as workflow artifacts; for pushes to `main` it also replaces the [`latest`](https://github.com/ration/kyykka/releases/tag/latest) pre-release with the new builds. Pushing a tag like `v0.1.0` publishes a versioned release.
+Android also needs the Android SDK and a JDK (set their paths in Editor → Editor Settings → Export → Android, along with a debug keystore), then: `godot --headless --path . --export-debug Android builds/android/kyykka.apk`, and `adb install -r builds/android/kyykka.apk` to put it on a phone or emulator.
+
+You don't normally need to: `.github/workflows/build.yml` does this on GitHub Actions. On every push to `main` (and on pull requests) it runs the tests and exports all four builds (Linux, Windows, macOS, Android), uploading them as workflow artifacts; for pushes to `main` it also replaces the [`latest`](https://github.com/ration/kyykka/releases/tag/latest) pre-release with the new builds. Pushing a tag like `v0.1.0` publishes a versioned release.
 
 ### Playing online
 

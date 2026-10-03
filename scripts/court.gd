@@ -92,6 +92,15 @@ func _ready() -> void:
 	hud.match_controller = match_controller
 	add_child(hud)
 
+	if TouchControls.is_touch_device():
+		var touch := TouchControls.new()
+		touch.name = "TouchControls"
+		touch.thrower = match_controller.thrower
+		touch.pause_pressed.connect(pause_menu.toggle)
+		pause_menu.toggled.connect(func(open: bool) -> void: touch.visible = not open)
+		match_controller.match_finished.connect(touch.hide)
+		add_child(touch)
+
 	var results := ResultsScreen.new()
 	results.name = "ResultsScreen"
 	results.match_controller = match_controller

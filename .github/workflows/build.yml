@@ -33,7 +33,7 @@ jobs:
           path: |
             ~/godot
             ~/.local/share/godot/export_templates
-          key: godot-${{ env.GODOT_VERSION }}
+          key: godot-${{ env.GODOT_VERSION }}-android
 
       - name: Download Godot and export templates
         if: steps.cache-godot.outputs.cache-hit != 'true'
@@ -45,13 +45,41 @@ jobs:
           mv ~/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 ~/godot/godot
           curl -sSfL -o /tmp/templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
           unzip -q /tmp/templates.tpz -d /tmp/templates
-          # Only the desktop templates, to keep the cache small.
+          # Only the templates we export with, to keep the cache small.
           dest=~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
           mkdir -p "$dest"
           cp /tmp/templates/templates/version.txt \
              /tmp/templates/templates/linux_release.x86_64 \
              /tmp/templates/templates/windows_release_x86_64.exe \
-             /tmp/templates/templates/macos.zip "$dest"/
+             /tmp/templates/templates/macos.zip \
+             /tmp/templates/templates/android_debug.apk "$dest"/
+
+      - name: Set up Java and the Android SDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Point Godot at the Android SDK and a debug keystore
+        run: |
+          # A throwaway debug key: the APK is for sideloading, not the Play Store.
+          mkdir -p ~/.local/share/godot/keystores
+          keytool -genkeypair -keystore ~/.local/share/godot/keystores/debug.keystore \
+            -storepass android -alias androiddebugkey -keypass android -keyalg RSA \
+            -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          sdkmanager "platform-tools" "build-tools;35.0.0" "platforms;android-35" > /dev/null
+          mkdir -p ~/.config/godot
+          printf '%s\n' \
+            '[gd_resource type="EditorSettings" format=3]' '' '[resource]' \
+            "export/android/android_sdk_path = \"$ANDROID_SDK_ROOT\"" \
+            "export/android/java_sdk_path = \"$JAVA_HOME\"" \
+            "export/android/debug_keystore = \"$HOME/.local/share/godot/keystores/debug.keystore\"" \
+            'export/android/debug_keystore_user = "androiddebugkey"' \
+            'export/android/debug_keystore_pass = "android"' \
+            > ~/.config/godot/editor_settings-4.7.tres
+          cat ~/.config/godot/editor_settings-4.7.tres
 
       - name: Import project
         run: make import GODOT=~/godot/godot
@@ -64,17 +92,23 @@ jobs:
           make export GODOT=~/godot/godot PRESET=Linux OUT=builds/linux/kyykka.x86_64
           make export GODOT=~/godot/godot PRESET=Windows OUT=builds/windows/kyykka.exe
           make export GODOT=~/godot/godot PRESET=macOS OUT=builds/macos/kyykka-macos.zip
+          mkdir -p builds/android
+          ~/godot/godot --headless --path . --export-debug Android builds/android/kyykka.apk
+          test -s builds/android/kyykka.apk
           # Zip ourselves, so the Linux binary keeps its executable bit.
           cd builds
           (cd linux && chmod +x kyykka.x86_64 && zip -q ../kyykka-linux.zip kyykka.x86_64)
           (cd windows && zip -q ../kyykka-windows.zip kyykka.exe)
           cp macos/kyykka-macos.zip kyykka-macos.zip
-          ls -lh *.zip
+          cp android/kyykka.apk kyykka-android.apk
+          ls -lh *.zip *.apk
 
       - uses: actions/upload-artifact@v4
         with:
           name: kyykka-builds
-          path: builds/*.zip
+          path: |
+            builds/*.zip
+            builds/*.apk
 
       - name: Publish rolling "latest" pre-release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -82,7 +116,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete latest --yes --cleanup-tag || true
-          gh release create latest builds/*.zip --prerelease --target "$GITHUB_SHA" \
+          gh release create latest builds/*.zip builds/*.apk --prerelease --target "$GITHUB_SHA" \
             --title "Latest build (${GITHUB_SHA::7})" \
             --notes "Automatic build of the latest commit on main. See README.md (\"Playing a build\") for how to run it."
 
@@ -90,4 +124,4 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" builds/*.zip --title "$GITHUB_REF_NAME" --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" builds/*.zip builds/*.apk --title "$GITHUB_REF_NAME" --generate-notes

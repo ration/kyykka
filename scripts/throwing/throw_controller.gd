@@ -21,6 +21,9 @@ extends Node3D
 ## SpinCalculator); releasing early/late under/over-rotates it. Running
 ## the gauge past 180 without releasing cancels the swing.
 ##
+## On a touchscreen, TouchControls drives the same actions: drag to aim,
+## hold THROW for the swing, drag the STEP pad to step, pinch to zoom.
+##
 ## Holding the right mouse button turns horizontal mouse motion into
 ## stepping sideways along the throwing line (the thrower's own pesä front
 ## line) instead of aiming; there's no way off the line, so no foot
@@ -95,7 +98,8 @@ const GAUGE_HEIGHT := 16.0
 
 func _ready() -> void:
 	assert(karttu_scene != null and camera != null)
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	if not TouchControls.is_touch_device():
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	_karttu = karttu_scene.instantiate()
 	get_parent().add_child(_karttu)
 	_build_gauge_ui()
@@ -208,42 +212,72 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not enabled or suspended:
 		_stepping = false
 		return
+	# Touch is handled by TouchControls; Godot's emulated mouse events from
+	# touches would otherwise aim and throw a second time.
+	if event is InputEventMouse and event.device == InputEvent.DEVICE_ID_EMULATION:
+		return
 
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
 		_stepping = event.pressed
 	elif event is InputEventMouseMotion and _stepping:
-		set_line_offset(_line_offset + event.relative.x * step_sensitivity)
-	elif event is InputEventMouseMotion and not _busy:
-		_yaw_degrees = clampf(
-			_yaw_degrees - event.relative.x * mouse_sensitivity,
-			-aim_cone_degrees,
-			aim_cone_degrees
-		)
-		# relative.y is positive moving down the screen, so subtracting it
-		# means moving the mouse up raises the aim, same convention as a
-		# typical mouse-look.
-		_elevation_degrees = clampf(
-			_elevation_degrees - event.relative.y * mouse_sensitivity,
-			min_elevation_degrees,
-			max_elevation_degrees
-		)
-		_update_camera()
+		step_by(event.relative.x * step_sensitivity)
+	elif event is InputEventMouseMotion:
+		aim_by(event.relative * mouse_sensitivity)
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
-			if not _busy and not _awaiting_release:
-				_swinging = true
-				_gauge_degrees = 0.0
+			begin_swing()
 		else:
-			_awaiting_release = false
-			if _swinging:
-				_swinging = false
-				var gauge := _gauge_degrees
-				_gauge_bar.hide()
-				release_swing(gauge)
+			end_swing()
 	elif event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
-		var step := -zoom_step_degrees if event.button_index == MOUSE_BUTTON_WHEEL_UP else zoom_step_degrees
-		_fov_degrees = clampf(_fov_degrees + step, min_fov_degrees, max_fov_degrees)
-		camera.fov = _fov_degrees
+		zoom_by(-zoom_step_degrees if event.button_index == MOUSE_BUTTON_WHEEL_UP else zoom_step_degrees)
+
+
+# Input actions, shared by the mouse (_unhandled_input()) and TouchControls.
+
+func accepts_input() -> bool:
+	return enabled and not suspended
+
+
+## Turns the aim by `degrees` the way a mouse-look does: x is movement
+## across the screen (positive: right), y down it (positive: look down).
+func aim_by(degrees: Vector2) -> void:
+	if not accepts_input() or _busy:
+		return
+	_yaw_degrees = clampf(_yaw_degrees - degrees.x, -aim_cone_degrees, aim_cone_degrees)
+	# Positive y is down the screen, so subtracting it means moving up
+	# raises the aim, same convention as a typical mouse-look.
+	_elevation_degrees = clampf(_elevation_degrees - degrees.y, min_elevation_degrees, max_elevation_degrees)
+	_update_camera()
+
+
+## Steps `metres` to the right along the line.
+func step_by(metres: float) -> void:
+	if accepts_input():
+		set_line_offset(_line_offset + metres)
+
+
+## Starts sweeping the swing gauge (button / THROW pressed).
+func begin_swing() -> void:
+	if accepts_input() and not _busy and not _awaiting_release:
+		_swinging = true
+		_gauge_degrees = 0.0
+
+
+## Releases the swing (button / THROW let go): throws at the gauge's
+## current angle, unless it already ran out.
+func end_swing() -> void:
+	_awaiting_release = false
+	if _swinging:
+		_swinging = false
+		var gauge := _gauge_degrees
+		_gauge_bar.hide()
+		release_swing(gauge)
+
+
+## Narrows (negative) or widens the field of view.
+func zoom_by(degrees: float) -> void:
+	_fov_degrees = clampf(_fov_degrees + degrees, min_fov_degrees, max_fov_degrees)
+	camera.fov = _fov_degrees
 
 
 func _process(delta: float) -> void:
