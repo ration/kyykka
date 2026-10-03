@@ -66,11 +66,17 @@ func _ready() -> void:
 		var look := SpectatorMesh.random_look(rng, overall, winter)
 		if index == logo_wearer:
 			look.shirt = Color(0.95, 0.95, 0.94)
+			look.hair_style = "short"
 			look.long_hair = false
+			look.stance = "relaxed"  # nothing in front of the logo
 			look.chest_patch = winter  # the shirt's under zipped-up overalls
 		var person := MeshInstance3D.new()
 		person.material_override = material
-		var down := SpectatorMesh.build(look, SpectatorMesh.Pose.DOWN)
+		var poses := [SpectatorMesh.Pose.DOWN, SpectatorMesh.Pose.CHEER]
+		if look.can != null:
+			poses.append(SpectatorMesh.Pose.DRINK)
+		var meshes := SpectatorMesh.build_poses(look, poses)
+		var down: ArrayMesh = meshes[SpectatorMesh.Pose.DOWN]
 		person.mesh = down
 		var height := rng.randf_range(0.92, 1.1)
 		var base := Transform3D(Basis(Vector3.UP, spot.yaw).scaled(Vector3.ONE * height), spot.position)
@@ -79,8 +85,8 @@ func _ready() -> void:
 		if index == logo_wearer:
 			person.add_child(_logo_sprite(winter))
 		_spectators.append({
-			"node": person, "down": down, "up": SpectatorMesh.build(look, SpectatorMesh.Pose.CHEER), "base": base,
-			"drink": SpectatorMesh.build(look, SpectatorMesh.Pose.DRINK) if look.can != null else null,
+			"node": person, "down": down, "up": meshes[SpectatorMesh.Pose.CHEER], "base": base,
+			"drink": meshes.get(SpectatorMesh.Pose.DRINK),
 			"next_drink": rng.randf_range(1.0, BETWEEN_DRINKS.y), "drink_until": -1.0,
 			"phase": rng.randf() * TAU, "sway_rate": rng.randf_range(0.8, 1.6),
 			"jump_rate": rng.randf_range(8.0, 11.0), "cheer_from": -1.0, "cheer_until": -1.0,

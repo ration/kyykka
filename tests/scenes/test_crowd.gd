@@ -65,3 +65,46 @@ func test_logo_wearer_is_front_row_near_the_middle() -> void:
 	var at: Vector3 = spots[wearer].position
 	assert_lte(absf(at.x), 2.5 + Crowd.MIN_SIDE_CLEARANCE + 0.6)
 	assert_lt(absf(at.z), 3.0)
+
+
+func test_bend_keeps_limb_lengths_and_bends_toward_the_pole() -> void:
+	var root := Vector3(0.1, 0.9, 0)
+	var joints := SpectatorMesh._bend(root, Vector3(0.12, 0.15, 0.1), SpectatorMesh.THIGH, SpectatorMesh.SHIN, Vector3.BACK)
+	var knee: Vector3 = joints[0]
+	var ankle: Vector3 = joints[1]
+	assert_almost_eq(root.distance_to(knee), SpectatorMesh.THIGH, 0.001)
+	assert_almost_eq(knee.distance_to(ankle), SpectatorMesh.SHIN, 0.001)
+	assert_gt(knee.z, (root.z + ankle.z) / 2.0, "knee bends forward")
+	# Out of reach: the end stops short instead of stretching the limb.
+	joints = SpectatorMesh._bend(root, root + Vector3.DOWN * 2.0, SpectatorMesh.THIGH, SpectatorMesh.SHIN, Vector3.BACK)
+	assert_almost_eq(root.distance_to(joints[1]), SpectatorMesh.THIGH + SpectatorMesh.SHIN, 0.01)
+
+
+func test_every_stance_and_hairstyle_builds_on_the_ground() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 3
+	for winter in [false, true]:
+		for stance in SpectatorMesh.STANCES:
+			for style in SpectatorMesh.HAIR_STYLES:
+				var look := SpectatorMesh.random_look(rng, Color.RED, winter)
+				look.stance = stance
+				look.hair_style = style
+				look.can = null
+				var aabb := SpectatorMesh.build(look, SpectatorMesh.Pose.DOWN).get_aabb()
+				assert_almost_eq(aabb.position.y, 0.0, 0.01, "%s/%s feet on the ground" % [stance, style])
+				assert_between(aabb.end.y, 1.65, 1.85, "%s/%s height" % [stance, style])
+				assert_lt(aabb.size.x, 0.85, "%s/%s width" % [stance, style])
+
+
+func test_build_poses_matches_build() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 4
+	var look := SpectatorMesh.random_look(rng, Color.RED, false)
+	look.can = Color.BLUE
+	var poses := SpectatorMesh.Pose.values()
+	var meshes := SpectatorMesh.build_poses(look, poses)
+	for pose in poses:
+		var shared: Array = meshes[pose].surface_get_arrays(0)
+		var alone: Array = SpectatorMesh.build(look, pose).surface_get_arrays(0)
+		assert_eq(shared[Mesh.ARRAY_VERTEX], alone[Mesh.ARRAY_VERTEX])
+		assert_eq(shared[Mesh.ARRAY_INDEX], alone[Mesh.ARRAY_INDEX])
