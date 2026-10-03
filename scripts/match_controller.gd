@@ -25,7 +25,8 @@ signal attack_scored
 signal match_finished
 ## A throw has been scored, before it's applied and the turn moves on (the
 ## pesäs are still as the throw left them) — for OnlineLink to send.
-signal throw_resolved(result: ThrowResult)
+## `own_pesa` is what it did to the thrower's own pesä (see apply_result()).
+signal throw_resolved(result: ThrowResult, own_pesa: ThrowResult)
 
 @export var court_width: float
 @export var pesa_size: float
@@ -126,18 +127,30 @@ func _configure_thrower_for_current_attack() -> void:
 
 
 func _on_throw_settled() -> void:
-	var scorer := far_scorer if current_attack == current_half.attack_by_team_a else near_scorer
-	var result := scorer.score_current_state()
-	throw_resolved.emit(result)
-	apply_result(result)
+	var team_a := is_team_a_turn()
+	var result := (far_scorer if team_a else near_scorer).score_current_state()
+	var own_pesa := (near_scorer if team_a else far_scorer).score_current_state()
+	throw_resolved.emit(result, own_pesa)
+	apply_result(result, own_pesa)
 
 
 ## Applies one throw's result and moves the match on. Called by
 ## _on_throw_settled() normally, or with the host's result on an online
-## client.
-func apply_result(result: ThrowResult) -> void:
+## client. `own_pesa` is what the throw did to the thrower's *own* pesä (a
+## short one landing in it): kyykkä knocked about there are credited to
+## the other team's attack straight away (Attack.credit()), so removing one
+## lets them move up to their pesä line on their next throw.
+func apply_result(result: ThrowResult, own_pesa: ThrowResult = null) -> void:
 	last_throw_result = result
+	var defenders := current_half.attack_by_team_b if is_team_a_turn() else current_half.attack_by_team_a
 	current_attack.throw(last_throw_result)
+	if own_pesa != null and not own_pesa.is_miss():
+		print("%s hit their own pesä: %d out, %d onto the line, credited to %s" % [
+			current_attack.attacking_team.team_name,
+			own_pesa.removed_from_square + own_pesa.removed_from_line, own_pesa.moved_to_line,
+			defenders.attacking_team.team_name,
+		])
+		defenders.credit(own_pesa)
 
 	print("%s: karttu_used=%d/%d in_square=%d on_line=%d removed=%d finished=%s score=%s" % [
 		current_attack.attacking_team.team_name,

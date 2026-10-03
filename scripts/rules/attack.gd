@@ -37,9 +37,20 @@ func throw(result: ThrowResult) -> void:
 	karttu_used += 1
 
 
+## Kyykkä the defending team knocked about in this pesä themselves (a short
+## throw into their own square): they count as this attack's — removed ones
+## score for it and let it move up to the pesä line (README.md) — but no
+## karttu is used. Not recorded in `throws`; ignored once the attack is over.
+func credit(result: ThrowResult) -> void:
+	if is_finished() or result.is_miss():
+		return
+	pesa.apply(result.removed_from_square, result.moved_to_line, result.removed_from_line)
+
+
 ## Where the next throw is made from: the back edge of the court until
-## the first kyykkä has been knocked out of the pesä, then the attacking
-## team's own pesä line (README.md, "Teams and turns").
+## the first kyykkä has been knocked out of the pesä — by them, or by the
+## defending team hitting their own (credit()) — then the attacking team's
+## own pesä line (README.md, "Teams and turns").
 func throws_from_back_line() -> bool:
 	return pesa.removed == 0
 

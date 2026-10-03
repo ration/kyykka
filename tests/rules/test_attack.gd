@@ -42,3 +42,21 @@ func test_throws_from_the_back_line_until_a_kyykka_is_out() -> void:
 	assert_true(attack.throws_from_back_line())
 	attack.throw(ThrowResult.new(1, 0, 0))
 	assert_false(attack.throws_from_back_line(), "first kyykkä out: move up to the pesä line")
+
+
+func test_own_kyykka_knocked_out_by_the_defenders_count_without_using_karttu() -> void:
+	var attack := Attack.new(Team.new("A"), Pesa.new(4), 10)
+	attack.credit(ThrowResult.new(1, 1, 0))
+	assert_eq(attack.karttu_used, 0)
+	assert_eq(attack.pesa.removed, 1)
+	assert_eq(attack.pesa.on_line, 1)
+	assert_false(attack.throws_from_back_line(), "the attackers may move up to their pesä line")
+	assert_eq(attack.throws.size(), 0)
+
+
+func test_credit_after_the_attack_is_over_changes_nothing() -> void:
+	var attack := Attack.new(Team.new("A"), Pesa.new(2), 1)
+	attack.throw(ThrowResult.new())
+	attack.credit(ThrowResult.new(2, 0, 0))
+	assert_eq(attack.pesa.removed, 0)
+	assert_eq(attack.score(), -2 * Attack.PENALTY_IN_SQUARE)

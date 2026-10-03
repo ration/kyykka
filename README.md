@@ -25,7 +25,7 @@ Kyykkä ("Finnish skittles") is one of Finland's oldest traditional games. Two t
 - Each side's kyykkä are set up in the square they are defending; the opposing side throws at that square.
 - Teams alternate turns, throwing their karttu at the opponent's square and trying to knock the kyykkä pieces completely outside of it.
 - Each team's first throws are made from the back edge of the playing area, behind their own square. Once they have knocked their first kyykkä out of the opponent's square, they move up and throw from their own square's front line (their kyykkä line) for the rest of the half.
-- A short throw can hit your own kyykkä. Any knocked out of your own square count as removed for the opposing team, who get the points.
+- A short throw can hit your own kyykkä. Any knocked out of your own square count straight away as removed for the opposing team, who get the points — and, since a kyykkä is now out, may move up to their own line on their next throw.
 - A throw that fails to remove any kyykkä from the square counts as a miss.
 
 ### Scoring
