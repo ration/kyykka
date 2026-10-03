@@ -25,8 +25,10 @@ func test_every_chord_is_defined() -> void:
 func test_tracks_are_seamless_loops_of_the_whole_tune() -> void:
 	for track in TRACKS:
 		var stream: AudioStreamWAV = track.render()
-		var samples := stream.data.size() / 2
+		var samples := stream.loop_end  # the data has one guard frame after the loop (SoundSynth._to_stream())
 		assert_eq(stream.loop_mode, AudioStreamWAV.LOOP_FORWARD)
+		assert_eq(stream.data.size() / 2, samples + 1, "mixer never reads past the data")
+		assert_eq(stream.data.decode_s16(samples * 2), stream.data.decode_s16(0), "guard frame = loop start")
 		assert_almost_eq(samples / float(SoundSynth.MIX_RATE), track.loop_seconds(), 0.01)
 		var peak := 0
 		for i in range(0, samples, 7):

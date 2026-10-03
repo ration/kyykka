@@ -461,13 +461,20 @@ static func _to_stream(buf: PackedFloat32Array, loop: bool = false) -> AudioStre
 
 	var fade := 0 if loop else mini(int(0.005 * MIX_RATE), buf.size())
 	var data := PackedByteArray()
-	data.resize(buf.size() * 2)
+	# A loop gets one guard frame after it, a copy of its first: Godot's
+	# mixer reads up to and *including* frame loop_end when looping
+	# (AudioStreamPlaybackWAV::_mix_internal), and doesn't pad the data, so
+	# without it every pass read one sample past the buffer — which crashed
+	# on Android (SIGSEGV on the AudioTrack thread).
+	data.resize((buf.size() + (1 if loop else 0)) * 2)
 	for i in range(buf.size()):
 		var v := buf[i] * gain
 		var from_end := buf.size() - 1 - i
 		if from_end < fade:
 			v *= from_end / float(fade)
 		data.encode_s16(i * 2, int(clampf(v, -1.0, 1.0) * 32767.0))
+	if loop:
+		data.encode_s16(buf.size() * 2, data.decode_s16(0))
 
 	var stream := AudioStreamWAV.new()
 	stream.format = AudioStreamWAV.FORMAT_16_BITS

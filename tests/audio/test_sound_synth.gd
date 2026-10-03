@@ -66,7 +66,36 @@ func test_slide_loop_loops_over_the_whole_stream() -> void:
 		var stream := SoundSynth.slide_loop(winter)
 		assert_eq(stream.loop_mode, AudioStreamWAV.LOOP_FORWARD)
 		assert_eq(stream.loop_begin, 0)
-		assert_eq(stream.loop_end, stream.data.size() / 2)
+		assert_eq(stream.loop_end, stream.data.size() / 2 - 1, "all but the guard frame")
+		assert_loop_stays_inside_its_data(stream)
+
+
+## Godot's WAV mixer, when looping, mixes up to and *including* frame
+## loop_end (AudioStreamPlaybackWAV::_mix_internal: end_limit = loop_end,
+## span = limit - offset + 1), with no padding after the data — so that
+## frame has to exist, or every pass of the loop reads past the buffer
+## (crashed on Android: SIGSEGV on the AudioTrack thread). It should be a
+## copy of frame loop_begin, so the loop stays seamless.
+func assert_loop_stays_inside_its_data(stream: AudioStreamWAV) -> void:
+	var frames := stream.data.size() / 2
+	assert_lte(stream.loop_end, frames - 1, "loop_end reads past the data")
+	if stream.loop_end <= frames - 1:
+		assert_eq(stream.data.decode_s16(stream.loop_end * 2), stream.data.decode_s16(stream.loop_begin * 2), "guard frame is the loop's start")
+
+
+func test_every_looping_stream_stays_inside_its_data() -> void:
+	var frames := 4800
+	var buf := PackedFloat32Array()
+	buf.resize(frames)
+	for i in range(frames):
+		buf[i] = sin(TAU * 440.0 * i / SoundSynth.MIX_RATE)
+	var stream := SoundSynth._to_stream(buf, true)
+	assert_eq(stream.loop_end, frames, "the loop is still the whole buffer...")
+	assert_eq(stream.data.size() / 2, frames + 1, "...plus one guard frame for the mixer to read")
+	if stream.data.size() / 2 > frames:
+		assert_eq(stream.data.decode_s16(frames * 2), stream.data.decode_s16(0))
+	for winter in [false, true]:
+		assert_loop_stays_inside_its_data(SoundSynth.slide_loop(winter))
 
 
 func test_slide_loop_seam_has_no_jump() -> void:

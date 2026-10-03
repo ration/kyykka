@@ -30,9 +30,10 @@ func test_note_names_map_to_midi() -> void:
 
 func test_humppa_is_a_seamless_loop_of_the_whole_tune() -> void:
 	var stream := MusicSynth.humppa()
-	var samples := stream.data.size() / 2
+	var samples := stream.loop_end  # the data has one guard frame after the loop (SoundSynth._to_stream())
 	assert_eq(stream.loop_mode, AudioStreamWAV.LOOP_FORWARD)
-	assert_eq(stream.loop_end, samples)
+	assert_eq(stream.data.size() / 2, samples + 1)
+	assert_eq(stream.data.decode_s16(samples * 2), stream.data.decode_s16(0), "guard frame = loop start")
 	assert_almost_eq(samples / float(SoundSynth.MIX_RATE), MusicSynth.loop_seconds(), 0.01)
 	# Wrapped rendering: the loop point is no jump bigger than a normal step.
 	var first := stream.data.decode_s16(0) / 32767.0
