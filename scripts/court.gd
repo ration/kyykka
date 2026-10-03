@@ -91,6 +91,8 @@ func _ready() -> void:
 	hud.name = "HUD"
 	hud.match_controller = match_controller
 	add_child(hud)
+	match_controller.replay.started.connect(hud.hide)
+	match_controller.replay.finished.connect(hud.show)
 
 	if TouchControls.is_touch_device():
 		var touch := TouchControls.new()

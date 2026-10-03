@@ -406,7 +406,7 @@ func _build_gauge_ui() -> void:
 	# The mouse is captured, so without this there's nothing on screen
 	# showing what the look ray (and so the throw) is aimed at.
 	var crosshair := ColorRect.new()
-	crosshair.color = Color(1, 1, 1, 0.8)
+	crosshair.color = GameMode.crosshair_color()
 	crosshair.size = Vector2(4, 4)
 	crosshair.position = Vector2(-2, -2)
 	crosshair.anchor_left = 0.5

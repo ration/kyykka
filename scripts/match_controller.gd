@@ -60,6 +60,7 @@ var far_scorer: PesaScorer
 
 var thrower: ThrowController
 var last_throw_result: ThrowResult  ## the most recent throw's effect, for attack_scored listeners
+var replay: ThrowReplay  ## slow-motion replay of a throw that knocked lots out, before the turn moves on
 
 
 func _ready() -> void:
@@ -75,6 +76,15 @@ func _ready() -> void:
 	if not remote_results:
 		thrower.throw_settled.connect(_on_throw_settled)
 	add_child(thrower)
+
+	replay = ThrowReplay.new()
+	replay.name = "ThrowReplay"
+	replay.camera = camera
+	add_child(replay)
+	thrower.thrown.connect(func() -> void: replay.record(synced_bodies()))
+	# Stop before the turn's own clean-up (karttu back in hand, own kyykkä
+	# put back) gets recorded as a teleport.
+	thrower.throw_settled.connect(replay.end_recording)
 	_configure_thrower_for_current_attack()
 
 
@@ -155,6 +165,13 @@ func apply_result(result: ThrowResult) -> void:
 	])
 	attack_scored.emit()
 
+	# A great throw is replayed in slow motion before the turn moves on; the
+	# score and cheer above come first, so the crowd celebrates over it.
+	if replay.worth_replaying(result):
+		thrower.enabled = false
+		await replay.play(result.knocked_out)
+	else:
+		replay.stop_recording()
 	_advance_turn()
 
 
@@ -207,7 +224,7 @@ func synced_bodies() -> Array[RigidBody3D]:
 
 
 func _update_input() -> void:
-	if thrower == null or kyykka_match == null or kyykka_match.is_finished():
+	if thrower == null or kyykka_match == null or kyykka_match.is_finished() or (replay != null and replay.is_playing()):
 		return
 	thrower.enabled = is_local_turn() and not waiting_for_opponent
 

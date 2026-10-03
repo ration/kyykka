@@ -104,6 +104,7 @@ func _on_aim_received(yaw: float, elevation: float, offset: float) -> void:
 # Host ------------------------------------------------------------------------
 
 func _on_client_throw_request(yaw: float, elevation: float, offset: float, gauge: float) -> void:
+	await _end_replay()
 	var thrower := match_controller.thrower
 	if match_controller.current_team() != 1 or thrower.is_throwing() or match_controller.kyykka_match.is_finished():
 		return  # not their turn (a stale or duplicate request)
@@ -137,6 +138,7 @@ func _on_local_throw_request(gauge: float) -> void:
 
 
 func _on_remote_throw_started(number: int) -> void:
+	await _end_replay()
 	_throw_number = number
 	_receiving = true
 	_targets.clear()
@@ -163,6 +165,15 @@ func _on_result(result: Dictionary, snapshot: PackedFloat32Array) -> void:
 
 
 # Both ------------------------------------------------------------------------
+
+## Each machine plays a great throw's replay itself, and one player may skip
+## it: if the other has already thrown, cut ours short and let the turn move
+## on first.
+func _end_replay() -> void:
+	if match_controller.replay.is_playing():
+		match_controller.replay.skip()
+		await match_controller.turn_changed
+
 
 func _on_opponent_ready() -> void:
 	match_controller.waiting_for_opponent = false

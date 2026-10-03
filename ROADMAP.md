@@ -112,7 +112,8 @@ conventions.
     synthesised voices + clapping) at scoring throws, and swigs from cans
     (`scripts/crowd/`)
   - [ ] Ambience, UI click sounds
-  - [ ] Hit particles, throw replay/slow-mo
+  - [ ] Hit particles
+  - [x] Throw replay/slow-mo (`ThrowReplay`: throws knocking 4+ kyykkä out)
 
 - [ ] **Phase 9 — Settings & persistence**
   - Options menu, key bindings, save/load config

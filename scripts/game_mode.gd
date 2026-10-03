@@ -122,6 +122,12 @@ func ground_high_color() -> Color:
 	return Color(0.82, 0.72, 0.52)
 
 
+## The aiming dot: white, except black in winter, where white disappears
+## against the snow.
+func crosshair_color() -> Color:
+	return Color(0, 0, 0, 0.85) if current == Mode.WINTER else Color(1, 1, 1, 0.8)
+
+
 ## White lines vanish on snow, so winter courts are marked in red instead.
 func court_line_color() -> Color:
 	return Color(0.72, 0.08, 0.10) if current == Mode.WINTER else Color.WHITE
