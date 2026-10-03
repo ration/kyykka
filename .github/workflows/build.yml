@@ -1,0 +1,93 @@
+name: Build
+
+# Every push to main: run the tests, export Linux/Windows/macOS builds,
+# upload them as workflow artifacts and refresh the rolling "latest"
+# pre-release. Pushing a v* tag publishes a versioned release instead.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  GODOT_VERSION: 4.7.2
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Godot and export templates
+        id: cache-godot
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/godot
+            ~/.local/share/godot/export_templates
+          key: godot-${{ env.GODOT_VERSION }}
+
+      - name: Download Godot and export templates
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        run: |
+          base=https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable
+          mkdir -p ~/godot ~/.local/share/godot/export_templates
+          curl -sSfL -o /tmp/godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q /tmp/godot.zip -d ~/godot
+          mv ~/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 ~/godot/godot
+          curl -sSfL -o /tmp/templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q /tmp/templates.tpz -d /tmp/templates
+          # Only the desktop templates, to keep the cache small.
+          dest=~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          mkdir -p "$dest"
+          cp /tmp/templates/templates/version.txt \
+             /tmp/templates/templates/linux_release.x86_64 \
+             /tmp/templates/templates/windows_release_x86_64.exe \
+             /tmp/templates/templates/macos.zip "$dest"/
+
+      - name: Import project
+        run: make import GODOT=~/godot/godot
+
+      - name: Run tests
+        run: make test GODOT=~/godot/godot
+
+      - name: Export builds
+        run: |
+          make export GODOT=~/godot/godot PRESET=Linux OUT=builds/linux/kyykka.x86_64
+          make export GODOT=~/godot/godot PRESET=Windows OUT=builds/windows/kyykka.exe
+          make export GODOT=~/godot/godot PRESET=macOS OUT=builds/macos/kyykka-macos.zip
+          # Zip ourselves, so the Linux binary keeps its executable bit.
+          cd builds
+          (cd linux && chmod +x kyykka.x86_64 && zip -q ../kyykka-linux.zip kyykka.x86_64)
+          (cd windows && zip -q ../kyykka-windows.zip kyykka.exe)
+          cp macos/kyykka-macos.zip kyykka-macos.zip
+          ls -lh *.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kyykka-builds
+          path: builds/*.zip
+
+      - name: Publish rolling "latest" pre-release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest builds/*.zip --prerelease --target "$GITHUB_SHA" \
+            --title "Latest build (${GITHUB_SHA::7})" \
+            --notes "Automatic build of the latest commit on main. See README.md (\"Playing a build\") for how to run it."
+
+      - name: Publish versioned release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" builds/*.zip --title "$GITHUB_REF_NAME" --generate-notes

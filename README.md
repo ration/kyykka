@@ -38,6 +38,16 @@ Kyykkä ("Finnish skittles") is one of Finland's oldest traditional games. Two t
 
 This project aims to recreate kyykkä as a digital PC game using the Godot engine. The repository is in its early stages — see `CLAUDE.md` for the current project status and guidance for contributors, and `ROADMAP.md` for the full task breakdown.
 
+## Playing a build
+
+Ready-to-play builds for Linux, Windows and macOS are built automatically from every commit on `main`: download them from the [latest release](https://github.com/ration/kyykka/releases/tag/latest). Nothing to install — unzip and run:
+
+- **Windows** — unzip `kyykka-windows.zip` and run `kyykka.exe`. The build isn't code-signed, so SmartScreen may warn about an unknown publisher: click **More info → Run anyway**.
+- **Linux** — unzip `kyykka-linux.zip` and run `./kyykka.x86_64` (`chmod +x kyykka.x86_64` first if your unzip tool dropped the executable bit).
+- **macOS** — unzip `kyykka-macos.zip` and move `Kyykkä.app` to Applications. The app isn't signed or notarised, so the first time right-click it → **Open** → **Open** (or run `xattr -dr com.apple.quarantine /Applications/Kyykkä.app`).
+
+Any graphics card with OpenGL 3.3 (Linux/Windows) or Metal/OpenGL (macOS) should run it.
+
 ## Development
 
 ### Requirements
@@ -81,7 +91,15 @@ You can also open the project in the Godot editor (`make edit`, or Import → `p
 
 ### Exporting a build
 
-No export presets are checked in yet. Once: install export templates matching your Godot version (Editor → Manage Export Templates), then create a preset in Project → Export… (this writes `export_presets.cfg`, which is safe to commit). After that, e.g. `make export PRESET="Linux" OUT=builds/kyykka.x86_64`.
+`export_presets.cfg` has three presets: `Linux`, `Windows` and `macOS`. You need the Godot 4.7.2 export templates installed once (Editor → Manage Export Templates → Download and Install). Then:
+
+```sh
+make export PRESET=Linux   OUT=builds/linux/kyykka.x86_64
+make export PRESET=Windows OUT=builds/windows/kyykka.exe
+make export PRESET=macOS   OUT=builds/macos/kyykka-macos.zip
+```
+
+You don't normally need to: `.github/workflows/build.yml` does this on GitHub Actions. On every push to `main` (and on pull requests) it runs the tests and exports all three builds, uploading them as workflow artifacts; for pushes to `main` it also replaces the [`latest`](https://github.com/ration/kyykka/releases/tag/latest) pre-release with the new builds. Pushing a tag like `v0.1.0` publishes a versioned release.
 
 ### Playing online
 
