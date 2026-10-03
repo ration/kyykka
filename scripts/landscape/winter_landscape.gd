@@ -4,7 +4,7 @@ extends Landscape
 ## winter — on a big ploughed office-park parking lot after hours, modelled
 ## loosely on Hermia in Hervanta, Tampere, where it's usually played. The
 ## court is packed snow; alongside it run more courts with other teams
-## mid-game, then rows of parked cars under a layer of snow, lamp posts and
+## mid-game, then one car someone left parked, shielded with plywood, lamp posts and
 ## the plough's snowbanks round the edge. Beyond them, about six-storey
 ## office blocks (shaders/building.gdshader, windows lit in the low sun),
 ## then the snowfield, spruces and hills of the base Landscape. Light
@@ -26,6 +26,8 @@ const OFFICE_RING := Vector2(110.0, 175.0)  ## office blocks between these dista
 const OFFICE_COUNT := 14  ## once round the lot, so any one view shows about eight or fewer
 const OFFICE_FLOOR := 3.6      ## metres per storey
 const SNOWBANK_HEIGHT := 1.6
+const CAR_POSITION := Vector3(-14.0, 0.0, -24.0)  ## the one car: front of the nearest row, side-on to our court
+const CAR_YAW := 0.0  ## parked along the lot, its long side to our court
 const PAINT_MARKER := Color(1, 0, 1)  ## car vertex colour replaced by the instance's paint
 const BUILDING_SHADER := preload("res://shaders/building.gdshader")
 
@@ -266,54 +268,85 @@ func _car_row_zs() -> Array[float]:
 	return [-27.0, -47.0, 27.0, 47.0]
 
 
-## Rows of parked cars, nose to nose across each row's centre line, gaps
-## where someone's left; every one under a cap of snow. One MultiMesh per
-## body style, the paint per instance.
+## One car left in the lot — someone who parked too close to the courts —
+## with a plywood screen propped up between it and our court so a stray
+## karttu doesn't dent it. One car mesh with its paint set through the
+## same instance-paint path the old rows of cars used.
 func _build_cars() -> Node3D:
-	var rng := RandomNumberGenerator.new()
-	rng.seed = random_seed + 24
-	var styles := [_car_mesh(false), _car_mesh(true)]
-	var transforms: Array = [[], []]
-	var colors: Array = [[], []]
-	var paints: Array[Color] = [
-		Color(0.85, 0.86, 0.87), Color(0.08, 0.08, 0.09), Color(0.45, 0.47, 0.50),
-		Color(0.62, 0.63, 0.65), Color(0.15, 0.22, 0.42), Color(0.55, 0.08, 0.08),
-		Color(0.92, 0.92, 0.90), Color(0.20, 0.30, 0.22), Color(0.35, 0.25, 0.18),
-	]
-	for row_z in _car_row_zs():
-		for side: float in [-1.0, 1.0]:
-			var x := -LOT_HALF_SIZE.x + 6.0
-			while x < LOT_HALF_SIZE.x - 6.0:
-				x += 2.6
-				if rng.randf() < 0.18:
-					continue  # an empty space
-				var style := 1 if rng.randf() < 0.35 else 0
-				var facing := 0.0 if side < 0 else PI  # nose toward the row's centre line
-				var basis := Basis(Vector3.UP, facing + rng.randf_range(-0.06, 0.06))
-				transforms[style].append(Transform3D(basis, Vector3(x + rng.randf_range(-0.2, 0.2), 0, row_z + side * 2.6)))
-				colors[style].append(paints[rng.randi() % paints.size()])
 	var cars := Node3D.new()
 	cars.name = "Cars"
-	var material := _car_paint_material()
-	for style in range(2):
-		var multimesh := MultiMesh.new()
-		multimesh.transform_format = MultiMesh.TRANSFORM_3D
-		# On the Compatibility renderer a MultiMesh without use_colors hands
-		# the shader a black COLOR, wiping out the vertex colours; white
-		# instance colours leave them as they are.
-		multimesh.use_colors = true
-		multimesh.use_custom_data = true
-		multimesh.mesh = styles[style]
-		multimesh.instance_count = transforms[style].size()
-		for i in range(transforms[style].size()):
-			multimesh.set_instance_transform(i, transforms[style][i])
-			multimesh.set_instance_custom_data(i, colors[style][i])
-			multimesh.set_instance_color(i, Color.WHITE)
-		var instance := MultiMeshInstance3D.new()
-		instance.multimesh = multimesh
-		instance.material_override = material
-		cars.add_child(instance)
+	var at := CAR_POSITION
+	var facing := Basis(Vector3.UP, CAR_YAW)
+	var multimesh := MultiMesh.new()
+	multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	# On the Compatibility renderer a MultiMesh without use_colors hands
+	# the shader a black COLOR, wiping out the vertex colours; white
+	# instance colours leave them as they are.
+	multimesh.use_colors = true
+	multimesh.use_custom_data = true
+	multimesh.mesh = _car_mesh(true)
+	multimesh.instance_count = 1
+	multimesh.set_instance_transform(0, Transform3D(facing, at))
+	multimesh.set_instance_custom_data(0, Color(0.15, 0.22, 0.42))
+	multimesh.set_instance_color(0, Color.WHITE)
+	var instance := MultiMeshInstance3D.new()
+	instance.multimesh = multimesh
+	instance.material_override = _car_paint_material()
+	cars.add_child(instance)
+	cars.add_child(_build_plywood_screen())
 	return cars
+
+
+## Plywood sheets (1.22 x 2.44 m, the standard size) stood on edge between
+## the car and the court, propped from behind on 2x4 struts, with a couple
+## of sheets laid over the roof; the odd darker, weathered sheet, a strip
+## of red spray paint along the front and snow along the tops.
+func _build_plywood_screen() -> MeshInstance3D:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var ply := Color(0.80, 0.66, 0.45)
+	var weathered := Color(0.64, 0.52, 0.36)
+	var timber := Color(0.58, 0.45, 0.30)
+	var snow := Color(0.93, 0.94, 0.97)
+	var paint := Color(0.75, 0.10, 0.10)
+	var facing := Basis(Vector3.UP, CAR_YAW)
+	var xf := Transform3D(facing, CAR_POSITION)
+	# The screen stands along the car's length (local Z), on whichever of
+	# its sides (local ±X) faces our court at the origin.
+	var to_court := xf.affine_inverse() * Vector3.ZERO
+	var side := signf(to_court.x)
+	var screen_x := side * 1.45
+	var sheets := 4
+	for i in range(sheets):
+		var z := (i - (sheets - 1) / 2.0) * 1.24
+		var lean := Basis(Vector3.BACK, side * -0.06)  # leaning onto the struts
+		var colour := weathered if i == 2 else ply
+		_oriented_box(st, xf * Transform3D(lean.scaled(Vector3(0.018, 2.0, 1.22)), Vector3(screen_x, 1.0, z)), colour)
+		_oriented_box(st, xf * Transform3D(lean.scaled(Vector3(0.03, 0.05, 1.2)), Vector3(screen_x, 2.02, z)), snow)
+		# A strut from the top of the sheet down to the ground behind it.
+		var top := Vector3(screen_x - side * 0.08, 1.7, z)
+		var foot := Vector3(screen_x - side * 0.9, 0.0, z)
+		var strut := Basis(Vector3.UP, 0.0)
+		var dir := (top - foot).normalized()
+		var x_axis := dir.cross(Vector3.BACK).normalized()
+		strut = Basis(x_axis * 0.045, dir * top.distance_to(foot), x_axis.cross(dir) * 0.09)
+		_oriented_box(st, xf * Transform3D(strut, (top + foot) / 2.0), timber)
+	# Spray paint across the front: a wobbly stripe.
+	for i in range(sheets * 3):
+		var z := (i - (sheets * 3 - 1) / 2.0) * 0.41
+		var y := 1.05 + 0.08 * sin(i * 1.7)
+		_oriented_box(st, xf * Transform3D(Basis.from_scale(Vector3(0.004, 0.09, 0.42)), Vector3(screen_x + side * 0.012, y, z)), paint)
+	# Two sheets over the roof, weighed down with snow.
+	for i in range(2):
+		var z := (i - 0.5) * 1.24
+		_oriented_box(st, xf * Transform3D(Basis.from_scale(Vector3(1.22, 0.018, 1.22)), Vector3(0, 1.52, z)), ply if i == 0 else weathered)
+		_oriented_box(st, xf * Transform3D(Basis.from_scale(Vector3(1.1, 0.06, 1.1)), Vector3(0.05, 1.56, z)), snow)
+	st.generate_normals()
+	var screen := MeshInstance3D.new()
+	screen.name = "PlywoodScreen"
+	screen.mesh = st.commit()
+	screen.material_override = _vertex_color_material(0.9)
+	return screen
 
 
 ## One car, facing +Z: body (painted with the instance colour — vertex

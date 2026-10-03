@@ -19,6 +19,7 @@ const VIEWS := {
 	"closeup": [Vector3(1.5, 1.2, -1.5), Vector3(0.0, 0.0, -5.0)],
 	"crowd": [Vector3(1.0, 1.5, 1.5), Vector3(5.5, 1.1, -0.5)],
 	"lot": [Vector3(-14.0, 14.0, 34.0), Vector3(8.0, 0.0, -20.0)],
+	"car": [Vector3(-6.0, 2.0, -24.5), Vector3(-14.0, 0.9, -24.0)],
 }
 
 
