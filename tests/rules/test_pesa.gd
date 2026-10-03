@@ -1,32 +1,32 @@
 extends GutTest
 
 
-func test_starts_with_all_kyykka_in_square() -> void:
+func test_starts_with_every_kyykka_in_play_in_the_square() -> void:
 	var pesa := Pesa.new(4)
-	assert_eq(pesa.in_square, 4)
-	assert_eq(pesa.on_line, 0)
+	assert_eq(pesa.akka, 4)
+	assert_eq(pesa.pappi, 0)
+	assert_eq(pesa.kuokkavieras, 0)
 	assert_eq(pesa.removed, 0)
 	assert_false(pesa.is_cleared())
 
 
-func test_apply_moves_pieces_between_states() -> void:
+func test_set_counts_replaces_the_zone_counts() -> void:
 	var pesa := Pesa.new(10)
-
-	pesa.apply(2, 3, 0)  # 2 removed directly, 3 moved onto the line
-	assert_eq(pesa.in_square, 5)
-	assert_eq(pesa.on_line, 3)
-	assert_eq(pesa.removed, 2)
-
-	pesa.apply(0, 0, 1)  # 1 of the on-line pieces gets removed too
-	assert_eq(pesa.in_square, 5)
-	assert_eq(pesa.on_line, 2)
-	assert_eq(pesa.removed, 3)
+	pesa.set_counts(5, 2, 1, 2)
+	assert_eq([pesa.akka, pesa.pappi, pesa.kuokkavieras, pesa.removed], [5, 2, 1, 2])
 
 
-func test_is_cleared_once_nothing_remains() -> void:
-	var pesa := Pesa.new(2)
-	pesa.apply(1, 1, 0)
-	assert_false(pesa.is_cleared(), "one piece is still on the line")
-
-	pesa.apply(0, 0, 1)
+func test_is_cleared_only_once_nothing_is_left_anywhere() -> void:
+	var pesa := Pesa.new(3)
+	pesa.set_counts(0, 1, 0, 2)
+	assert_false(pesa.is_cleared(), "a pappi still has to go")
+	pesa.set_counts(0, 0, 1, 2)
+	assert_false(pesa.is_cleared(), "so does a kuokkavieras")
+	pesa.set_counts(0, 0, 0, 3)
 	assert_true(pesa.is_cleared())
+
+
+func test_penalty_points() -> void:
+	var pesa := Pesa.new(10)
+	pesa.set_counts(3, 2, 1, 4)
+	assert_eq(pesa.penalty(), 3 * 2 + 2 * 1 + 1 * 2)

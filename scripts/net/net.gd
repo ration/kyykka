@@ -31,7 +31,7 @@ signal impact_received(kind: int, strength: float, at: Vector3)
 enum Role { OFFLINE, HOST, CLIENT }
 
 const PORT := 24480
-const PROTOCOL_VERSION := 3  ## bump when any message changes (2: tower mode, 3: own-pesä results); mismatched peers are turned away
+const PROTOCOL_VERSION := 4  ## bump when any message changes (2: tower mode, 3: own-pesä results, 4: official rules — zone counts); mismatched peers are turned away
 const COURT_SCENE := "res://scenes/court.tscn"
 const SETTINGS_PATH := "user://online.cfg"
 

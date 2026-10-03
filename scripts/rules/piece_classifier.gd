@@ -1,45 +1,48 @@
 class_name PieceClassifier
 extends RefCounted
 ## Pure geometry: classifies a kyykkä's position relative to a pesä
-## rectangle. No Node/physics dependency, so Phase 3's PesaScorer (which
-## reads real 3D positions) and GUT tests can both drive it directly.
+## rectangle and the gap in front of it. No Node/physics dependency, so
+## PesaScorer (which reads real 3D positions) and GUT tests can both drive
+## it directly.
 ##
 ## `depth` is the piece's distance from the pesä's front line (0) toward
-## its back line (pesa_depth) — see PesaView.to_pesa_local(), which
-## produces coordinates in this space regardless of which end of the
-## court the pesä is at.
+## its back line (pesa_depth); negative is in front of the square, toward
+## the other one — see PesaView.to_pesa_local(), which produces coordinates
+## in this space regardless of which end of the court the pesä is at.
 
-enum Zone { IN_SQUARE, ON_LINE, REMOVED }
+enum Zone { AKKA, PAPPI, KUOKKAVIERAS, REMOVED }
 
-
-## Classifies by distance to the nearest of the three relevant edges
-## (front, back, left/right side). Positive "inside margin" means the
-## point is that far inside the rectangle from its nearest edge;
-## negative means it's already past that edge.
-static func classify(x: float, depth: float, half_width: float, pesa_depth: float, margin: float) -> Zone:
-	var inside_margin_x := half_width - absf(x)
-	var inside_margin_front := depth
-	var inside_margin_back := pesa_depth - depth
-	var nearest_edge_margin := minf(inside_margin_x, minf(inside_margin_front, inside_margin_back))
-
-	if nearest_edge_margin < -margin:
-		return Zone.REMOVED
-	if nearest_edge_margin < margin:
-		return Zone.ON_LINE
-	return Zone.IN_SQUARE
+## How far along a side line from the front line still counts as the
+## front line (kyykkaliiga.fi: on a side line "alle 10 cm etäisyydellä
+## eturajasta" is -2 and not a pappi).
+const FRONT_CORNER := 0.1
 
 
-## Where a kyykkä that ended up ON_LINE is stood up: the nearest point on
-## the pesä's outline (front, back or a side line), as (x, depth). Rules:
-## a kyykkä landing on the line is turned upright on the line, where it
-## counts as on the line (Attack.PENALTY_ON_LINE) until knocked out.
+## Which zone (see Pesa) a kyykkä at (x, depth) is in; within `margin` of a
+## line counts as on it. On the front line — or a side line within
+## FRONT_CORNER of it — it's still an akka; on a side or back line, a
+## pappi; past the front line but inside the court's width and short of
+## the other square (`gap` metres away), a kuokkavieras; anywhere else, out.
+static func classify(x: float, depth: float, half_width: float, pesa_depth: float, gap: float, margin: float) -> Zone:
+	var inside_x := half_width - absf(x)
+	var inside_front := depth
+	var inside_back := pesa_depth - depth
+	if inside_x >= -margin and inside_front >= -margin and inside_back >= -margin:
+		var on_side := inside_x < margin
+		var on_back := inside_back < margin
+		if on_back or (on_side and depth > FRONT_CORNER):
+			return Zone.PAPPI
+		return Zone.AKKA
+	if depth < 0.0 and depth > -gap and inside_x >= -margin:
+		return Zone.KUOKKAVIERAS
+	return Zone.REMOVED
+
+
+## Where a pappi is stood up: the nearest point on the side or back line
+## (the front line doesn't make papit), as (x, depth).
 static func snap_to_line(x: float, depth: float, half_width: float, pesa_depth: float) -> Vector2:
-	var to_side := half_width - absf(x)
-	var to_front := absf(depth)
+	var to_side := absf(half_width - absf(x))
 	var to_back := absf(pesa_depth - depth)
-	var nearest := minf(absf(to_side), minf(to_front, to_back))
-	if nearest == to_front:
-		return Vector2(clampf(x, -half_width, half_width), 0.0)
-	if nearest == to_back:
+	if to_back <= to_side:
 		return Vector2(clampf(x, -half_width, half_width), pesa_depth)
 	return Vector2(signf(x) * half_width if x != 0.0 else half_width, clampf(depth, 0.0, pesa_depth))

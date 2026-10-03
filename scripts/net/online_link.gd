@@ -117,14 +117,11 @@ func _on_host_thrown() -> void:
 	Net.send_throw_started(_throw_number)
 
 
-func _on_host_throw_resolved(result: ThrowResult, own_pesa: ThrowResult) -> void:
+func _on_host_throw_resolved(result: ThrowResult) -> void:
 	_streaming = false
 	var m := match_controller
 	Net.send_result({
-		"removed_from_square": result.removed_from_square,
-		"moved_to_line": result.moved_to_line,
-		"removed_from_line": result.removed_from_line,
-		"own_pesa": [own_pesa.removed_from_square, own_pesa.moved_to_line, own_pesa.removed_from_line],
+		"zones": [result.akka, result.pappi, result.kuokkavieras, result.removed, result.knocked_out],
 		# What the client should be at, to catch a desync early.
 		"half": m.kyykka_match.halves.size(),
 		"team": m.current_team(),
@@ -161,11 +158,8 @@ func _on_result(result: Dictionary, snapshot: PackedFloat32Array) -> void:
 			bodies[i].global_transform = final[i]
 	if result.half != m.kyykka_match.halves.size() or result.team != m.current_team() or result.karttu_used != m.current_attack.karttu_used:
 		push_error("Online match out of sync: host is at half %d, team %d, karttu %d" % [result.half, result.team, result.karttu_used])
-	var own: Array = result.get("own_pesa", [0, 0, 0])
-	m.apply_result(
-		ThrowResult.new(result.removed_from_square, result.moved_to_line, result.removed_from_line),
-		ThrowResult.new(own[0], own[1], own[2])
-	)
+	var zones: Array = result.zones
+	m.apply_result(ThrowResult.new(zones[0], zones[1], zones[2], zones[3], zones[4]))
 
 
 # Both ------------------------------------------------------------------------

@@ -65,7 +65,7 @@ var suspended: bool = false  ## true while a menu is open without pausing the ga
 @export var min_fov_degrees: float = 15.0  ## most zoomed in (scroll up)
 @export var max_fov_degrees: float = 70.0  ## least zoomed in / default (scroll down)
 @export var zoom_step_degrees: float = 4.0  ## FOV change per scroll notch
-@export var settle_timeout_seconds: float = 5.0
+@export var settle_timeout_seconds: float = 8.0  ## a backstop: with 40 kyykkä a throw takes ~4-6 s to come to rest (5 s cut ~1 in 6 short)
 @export var karttu_rest_height: float = 0.03  ## roughly its radius, so it rests on the ground rather than clipping into it
 @export var miss_indicator_seconds: float = 0.8
 

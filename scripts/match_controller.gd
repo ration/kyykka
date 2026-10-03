@@ -24,9 +24,9 @@ signal turn_changed
 signal attack_scored
 signal match_finished
 ## A throw has been scored, before it's applied and the turn moves on (the
-## pesäs are still as the throw left them) — for OnlineLink to send.
-## `own_pesa` is what it did to the thrower's own pesä (see apply_result()).
-signal throw_resolved(result: ThrowResult, own_pesa: ThrowResult)
+## pesäs are as the throw left them, papit stood up and the thrower's own
+## kyykkä put back) — for OnlineLink to send.
+signal throw_resolved(result: ThrowResult)
 
 @export var court_width: float
 @export var pesa_size: float
@@ -95,7 +95,7 @@ func _start_half() -> void:
 	# reverse (see scripts/rules/kyykka_match.gd / half.gd).
 	near_scorer = PesaScorer.new(near_pesa_view, current_half.attack_by_team_b)
 	far_scorer = PesaScorer.new(far_pesa_view, current_half.attack_by_team_a)
-	current_attack = current_half.attack_by_team_a
+	current_attack = kyykka_match.starting_attack(current_half)
 
 	print("-- Half %d begins --" % kyykka_match.halves.size())
 	half_started.emit(kyykka_match.halves.size())
@@ -108,6 +108,7 @@ func _build_pesa_view(z: float, depth_direction: float) -> PesaView:
 	view.usable_width = court_width - 2.0 * pesa_side_margin
 	view.pesa_half_width = court_width / 2.0
 	view.pesa_depth = pesa_size
+	view.gap_length = far_pesa_z - near_pesa_z
 	view.depth_direction = depth_direction
 	view.position = Vector3(0, 0, z)
 	return view
@@ -126,38 +127,31 @@ func _configure_thrower_for_current_attack() -> void:
 	turn_changed.emit()
 
 
+## Scores the target pesä. A throw that knocked the thrower's *own* kyykkä
+## (a short one into their own throwing square) has those put back first:
+## a team must not move the opponent's kyykkä (kyykkaliiga.fi §7.8).
 func _on_throw_settled() -> void:
 	var team_a := is_team_a_turn()
+	var restored := (near_scorer if team_a else far_scorer).restore_moved()
+	if restored > 0:
+		print("%s hit their own throwing square: %d kyykkä put back" % [current_attack.attacking_team.team_name, restored])
 	var result := (far_scorer if team_a else near_scorer).score_current_state()
-	var own_pesa := (near_scorer if team_a else far_scorer).score_current_state()
-	throw_resolved.emit(result, own_pesa)
-	apply_result(result, own_pesa)
+	throw_resolved.emit(result)
+	apply_result(result)
 
 
 ## Applies one throw's result and moves the match on. Called by
 ## _on_throw_settled() normally, or with the host's result on an online
-## client. `own_pesa` is what the throw did to the thrower's *own* pesä (a
-## short one landing in it): kyykkä knocked about there are credited to
-## the other team's attack straight away (Attack.credit()), so removing one
-## lets them move up to their pesä line on their next throw.
-func apply_result(result: ThrowResult, own_pesa: ThrowResult = null) -> void:
+## client.
+func apply_result(result: ThrowResult) -> void:
 	last_throw_result = result
-	var defenders := current_half.attack_by_team_b if is_team_a_turn() else current_half.attack_by_team_a
 	current_attack.throw(last_throw_result)
-	if own_pesa != null and not own_pesa.is_miss():
-		print("%s hit their own pesä: %d out, %d onto the line, credited to %s" % [
-			current_attack.attacking_team.team_name,
-			own_pesa.removed_from_square + own_pesa.removed_from_line, own_pesa.moved_to_line,
-			defenders.attacking_team.team_name,
-		])
-		defenders.credit(own_pesa)
-
-	print("%s: karttu_used=%d/%d in_square=%d on_line=%d removed=%d finished=%s score=%s" % [
+	var pesa := current_attack.pesa
+	print("%s: karttu %d/%d akka=%d pappi=%d kuokkavieras=%d out=%d finished=%s score=%d" % [
 		current_attack.attacking_team.team_name,
 		current_attack.karttu_used, current_attack.karttu_budget,
-		current_attack.pesa.in_square, current_attack.pesa.on_line, current_attack.pesa.removed,
-		current_attack.is_finished(),
-		current_attack.score() if current_attack.is_finished() else "n/a",
+		pesa.akka, pesa.pappi, pesa.kuokkavieras, pesa.removed,
+		current_attack.is_finished(), current_attack.running_score(),
 	])
 	attack_scored.emit()
 
@@ -177,9 +171,10 @@ func _advance_turn() -> void:
 	_configure_thrower_for_current_attack()
 
 
-## Where the current team throws from: the back edge of the court at
-## their own end until they've knocked a kyykkä out, then their own pesä's
-## front line (Attack.throws_from_back_line()).
+## Where the current team throws from: the back line of its throwing
+## square (the back edge of the court at its own end) until it's opened —
+## knocked a kyykkä out — then that square's front line
+## (Attack.throws_from_back_line()).
 func throwing_position() -> Vector3:
 	var team_a := is_team_a_turn()
 	if current_attack.throws_from_back_line():

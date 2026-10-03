@@ -1,17 +1,10 @@
 class_name Attack
 extends RefCounted
-## One team's attempt to clear the opponent's pesä within a karttu budget.
-## Scoring follows README.md: +1 per kyykkä removed, +1 per karttu left
-## unused once the pesä is cleared, and a penalty per kyykkä still
-## IN_SQUARE or ON_LINE once the budget runs out.
-##
-## The penalty values are the best figures found while researching the
-## rules (Wikipedia's "Finnish skittles" scoring section); confirm them
-## against the official Suomen Kyykkäliitto rulebook if exact numbers
-## start to matter (e.g. for a ranked/official game mode).
-
-const PENALTY_IN_SQUARE := 2
-const PENALTY_ON_LINE := 1
+## One team's half against the opponent's square: a karttu budget (16 —
+## four players, four karttu each) to clear it. Scored per the official
+## rules (kyykkaliiga.fi "Kyykän säännöt" §6): knocked-out kyykkä earn
+## nothing; what's left when the karttu run out costs penalty points (see
+## Pesa); clearing the square early instead scores +1 per unused karttu.
 
 var attacking_team: Team
 var pesa: Pesa
@@ -32,40 +25,30 @@ func is_finished() -> bool:
 
 func throw(result: ThrowResult) -> void:
 	assert(not is_finished(), "Attack already finished")
-	pesa.apply(result.removed_from_square, result.moved_to_line, result.removed_from_line)
+	pesa.set_counts(result.akka, result.pappi, result.kuokkavieras, result.removed)
 	throws.append(result)
 	karttu_used += 1
 
 
-## Kyykkä the defending team knocked about in this pesä themselves (a short
-## throw into their own square): they count as this attack's — removed ones
-## score for it and let it move up to the pesä line (README.md) — but no
-## karttu is used. Not recorded in `throws`; ignored once the attack is over.
-func credit(result: ThrowResult) -> void:
-	if is_finished() or result.is_miss():
-		return
-	pesa.apply(result.removed_from_square, result.moved_to_line, result.removed_from_line)
-
-
-## Where the next throw is made from: the back edge of the court until
-## the first kyykkä has been knocked out of the pesä — by them, or by the
-## defending team hitting their own (credit()) — then the attacking team's
-## own pesä line (README.md, "Teams and turns").
+## The opening ("avaus"): throw from the back line of the throwing square
+## until a kyykkä has gone out of play — a pappi or kuokkavieras doesn't
+## count — then from its front line.
 func throws_from_back_line() -> bool:
 	return pesa.removed == 0
 
 
-## Bonus karttu only count once the pesä is actually cleared — running out
-## of karttu with kyykkä still standing leaves nothing "unused".
+## Only once the square's cleared — running out with kyykkä left leaves
+## nothing "unused".
 func unused_karttu() -> int:
 	return karttu_budget - karttu_used if pesa.is_cleared() else 0
 
 
 func score() -> int:
-	assert(is_finished(), "score() is only meaningful once the attack has finished")
-	return (
-		pesa.removed
-		+ unused_karttu()
-		- pesa.in_square * PENALTY_IN_SQUARE
-		- pesa.on_line * PENALTY_ON_LINE
-	)
+	assert(is_finished(), "score() is only final once the attack has finished")
+	return running_score()
+
+
+## What the score would be if it ended now: the bonus if cleared,
+## otherwise minus the penalties for what's left. For the HUD mid-attack.
+func running_score() -> int:
+	return unused_karttu() if pesa.is_cleared() else -pesa.penalty()

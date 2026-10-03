@@ -1,11 +1,11 @@
 class_name PesaView
 extends Node3D
 ## Spawns one pesä's kyykkä pieces as physical props: piece_count / 2
-## positions evenly spaced along local X at local Z = 0, each holding a
-## pair of kyykkä stacked one on top of the other (per README.md: 10
-## pairs, stacked two high, not 20 pairs side by side). Position (and,
-## if needed, rotate) this node to place it at a specific pesä's front
-## line — it doesn't know its own world position.
+## positions evenly spaced along local X at the front line, each holding a
+## pair of kyykkä stacked one on top of the other (official rules: 20
+## stacked pairs on the front line, 10 cm clear of the side lines).
+## Position (and, if needed, rotate) this node to place it at a specific
+## pesä's front line — it doesn't know its own world position.
 ##
 ## piece_count defaults to KyykkaMatch.DEFAULT_KYYKKA_PAIRS * 2 so the
 ## visual count stays wired to the Phase 1 rules engine instead of being
@@ -13,7 +13,7 @@ extends Node3D
 
 @export var kyykka_scene: PackedScene
 @export var piece_count: int = KyykkaMatch.DEFAULT_KYYKKA_PAIRS * 2
-@export var usable_width: float = 4.5  ## court width minus side margins
+@export var usable_width: float = 4.8  ## court width minus 10 cm each side
 @export var kyykka_diameter: float = 0.07
 @export var kyykka_height: float = 0.10
 
@@ -21,17 +21,18 @@ extends Node3D
 ## which only governs how the initial kyykkä pairs are laid out.
 @export var pesa_half_width: float = 2.5   ## court_width / 2
 @export var pesa_depth: float = 5.0        ## pesa_size
+@export var gap_length: float = 10.0       ## from this front line to the other square's (kuokkavieras zone)
 ## +1 if local +Z points from this pesä's front line toward its back line
 ## (the far pesä), -1 if local +Z points the other way (the near pesä).
 @export var depth_direction: float = 1.0
 ## How far in from the front line (depth 0) freshly spawned pieces sit.
-## Must clear PieceClassifier's margin (kyykka_diameter / 2) by a
-## comfortable amount — resting RigidBody3D pieces standing upright on a
-## flat plane are prone to slow physics-solver jitter/drift even while
-## "settled" (observed directly: 5+ seconds of undisturbed simulation
-## measurably drifted pieces placed only 1.5cm past the margin), so this
-## needs real slack, not just enough to clear the margin on paper.
-@export var spawn_inward_offset: float = 0.15
+## The rules put them on the line, which counts as in the square, but a
+## piece jittering forward off it would become a kuokkavieras: resting
+## RigidBody3D pieces standing upright on a flat plane are prone to slow
+## physics-solver jitter/drift even while "settled" (observed directly:
+## 5+ seconds of undisturbed simulation measurably drifted pieces placed
+## only 1.5 cm past a boundary), so they sit just inside it.
+@export var spawn_inward_offset: float = 0.1
 
 const TARGET_COLOR := Color(0.78, 0.13, 0.1)  ## painted wood
 
@@ -69,15 +70,25 @@ func to_pesa_local(world_pos: Vector3) -> Vector2:
 	return Vector2(local.x, local.z * depth_direction)
 
 
-## Stands `piece` upright on the nearest line of this pesä (PieceClassifier.
-## snap_to_line()), at rest — what players do with a kyykkä that lands on
-## the line.
+## Stands `piece` upright on the nearest side or back line of this pesä
+## (PieceClassifier.snap_to_line()), at rest — what the referee does with a
+## pappi ("nostetaan papiksi").
 func stand_up_on_line(piece: RigidBody3D) -> void:
 	var at := to_pesa_local(piece.global_position)
 	var on_line := PieceClassifier.snap_to_line(at.x, at.y, pesa_half_width, pesa_depth)
 	piece.linear_velocity = Vector3.ZERO
 	piece.angular_velocity = Vector3.ZERO
 	piece.transform = Transform3D(Basis.IDENTITY, Vector3(on_line.x, kyykka_height / 2.0, on_line.y * depth_direction))
+	piece.sleeping = true
+
+
+## Puts `piece` back where it was (`xf`, in this node's space), at rest —
+## for kyykkä the defending team knocked in its own throwing square, which
+## the rules say must be restored (kyykkaliiga.fi §7.8).
+func restore(piece: RigidBody3D, xf: Transform3D) -> void:
+	piece.linear_velocity = Vector3.ZERO
+	piece.angular_velocity = Vector3.ZERO
+	piece.transform = xf
 	piece.sleeping = true
 
 

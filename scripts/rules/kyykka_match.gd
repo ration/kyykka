@@ -3,15 +3,13 @@ extends RefCounted
 ## Orchestrates a full match: two teams, HALVES_PER_MATCH halves, each
 ## worth a fresh Attack per team against a freshly-stocked Pesa.
 ##
-## Defaults follow README.md: 10 kyykkä pairs (20 pieces, stacked two high
-## per position) per pesä and a 10-karttu budget per attack (one nominal
-## throw per pair). Named as constants/constructor args so they're easy to
-## correct once confirmed against the official rulebook, and so Phase 2+
-## can wire up alternate formats (pairs, individual play) without changing
-## this class's shape.
+## Defaults follow the official rules (kyykkaliiga.fi "Kyykän säännöt"):
+## 20 stacked pairs (40 kyykkä) on each square's front line, and 16 karttu
+## per team per half — four players throwing four each, in turns of four
+## (see Half). Constructor args so tests and other formats can change them.
 
-const DEFAULT_KYYKKA_PAIRS := 10
-const DEFAULT_KARTTU_BUDGET := 10
+const DEFAULT_KYYKKA_PAIRS := 20
+const DEFAULT_KARTTU_BUDGET := 16
 const HALVES_PER_MATCH := 2
 
 var team_a: Team
@@ -55,6 +53,14 @@ func total_score(team: Team) -> int:
 	for half in halves:
 		total += half.score_for(team)
 	return total
+
+
+## The attack that throws first in `half`: team A in the first half, then
+## alternating — the starting team changes between halves
+## ("aloittava joukkue vaihtuu").
+func starting_attack(half: Half) -> Attack:
+	var index := halves.find(half)
+	return half.attack_by_team_a if index % 2 == 0 else half.attack_by_team_b
 
 
 ## Returns the winning Team, or null on a tie.

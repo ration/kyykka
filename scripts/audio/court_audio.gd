@@ -306,7 +306,7 @@ func _on_attack_scored() -> void:
 	var result := match_controller.last_throw_result
 	if result == null:
 		return
-	var removed := result.removed_from_square + result.removed_from_line
+	var removed := result.knocked_out
 	if removed > 0:
 		_play_cue(_chime_stream, -8.0, 1.0 + 0.06 * mini(removed - 1, 6))
 

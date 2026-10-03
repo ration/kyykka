@@ -1,19 +1,25 @@
 class_name ThrowResult
 extends RefCounted
-## One karttu throw's effect on the target pesä. Phase 1 constructs these
-## directly (e.g. in tests); Phase 3's physics will construct them by
-## classifying where each kyykkä piece ended up after a throw.
+## Where one karttu throw left the target pesä's kyykkä: how many are in
+## each zone afterwards (see Pesa for the zones), plus how many of them
+## were knocked out of play by this throw — for the cheering and the chime.
+## Built by PesaScorer from the pieces' resting positions.
 
-var removed_from_square: int
-var moved_to_line: int
-var removed_from_line: int
-
-
-func _init(p_removed_from_square: int = 0, p_moved_to_line: int = 0, p_removed_from_line: int = 0) -> void:
-	removed_from_square = p_removed_from_square
-	moved_to_line = p_moved_to_line
-	removed_from_line = p_removed_from_line
+var akka: int
+var pappi: int
+var kuokkavieras: int
+var removed: int
+var knocked_out: int  ## left play (became `removed`) on this throw
 
 
+func _init(p_akka: int = 0, p_pappi: int = 0, p_kuokkavieras: int = 0, p_removed: int = 0, p_knocked_out: int = 0) -> void:
+	akka = p_akka
+	pappi = p_pappi
+	kuokkavieras = p_kuokkavieras
+	removed = p_removed
+	knocked_out = p_knocked_out
+
+
+## Nothing went out (the zone counts may still have shifted).
 func is_miss() -> bool:
-	return removed_from_square == 0 and moved_to_line == 0 and removed_from_line == 0
+	return knocked_out == 0

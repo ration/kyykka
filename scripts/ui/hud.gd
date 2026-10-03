@@ -141,16 +141,18 @@ func _refresh() -> void:
 		_kyykka_label.text = ""
 		return
 
-	_turn_label.text = _turn_text()
+	_turn_label.text = "%s · %d of %d left in the turn" % [
+		_turn_text(), match_controller.current_half.throws_left_in_turn(), Half.THROWS_PER_TURN,
+	]
 	if attack.throws_from_back_line():
-		_turn_label.text += "\nfrom the back line until a kyykkä is out"
+		_turn_label.text += "\nopening from the back line until a kyykkä is out"
 	_turn_label.add_theme_color_override("font_color", _turn_color())
 	_karttu_label.text = "Karttu %d / %d" % [
 		attack.karttu_budget - attack.karttu_used, attack.karttu_budget,
 	]
 	var pesa := attack.pesa
-	_kyykka_label.text = "Kyykkä  in %d · on line %d · out %d" % [
-		pesa.in_square, pesa.on_line, pesa.removed,
+	_kyykka_label.text = "Kyykkä  left %d · pappi %d · kuokkavieras %d · out %d" % [
+		pesa.akka, pesa.pappi, pesa.kuokkavieras, pesa.removed,
 	]
 
 
@@ -180,19 +182,16 @@ func _show_turn_banner() -> void:
 	_banner_tween.tween_property(_banner, "modulate:a", 0.0, 0.4)
 
 
-## KyykkaMatch.total_score() asserts every attack has finished, since a
-## final score isn't well-defined mid-attack (penalties and unused-karttu
-## bonuses depend on the finished state). For the running scoreboard we
-## just want a live provisional total: settled attacks contribute their
-## real score, in-progress attacks contribute the "positive" piece count
-## they've knocked out so far.
+## KyykkaMatch.total_score() asserts every attack has finished. The
+## scoreboard shows the live total instead: each attack's running_score() —
+## minus points for what's still left (it starts at -80 and climbs toward
+## zero as kyykkä go out), or the unused-karttu bonus once cleared.
 func _running_score(team: Team) -> int:
 	var total := 0
 	for half in match_controller.kyykka_match.halves:
 		var a := _attack_for_team(half, team)
-		if a == null:
-			continue
-		total += a.score() if a.is_finished() else a.pesa.removed
+		if a != null:
+			total += a.running_score()
 	return total
 
 

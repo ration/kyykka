@@ -8,8 +8,8 @@ extends SceneTree
 ##
 ## Usage:
 ##   godot --headless --path . --script tools/simulate_throws.gd -- [count] [summer|winter|tower]
-## (default count: 16, comfortably within one half's 10-karttu-per-side
-## budget so turn/half rollover doesn't need special handling)
+## (default count: 16 — one half is 16 karttu per side, so it stays
+## within the first half and turn/half rollover needs no special handling)
 ##
 ## Spreads gauge (spin timing) across the full 0-180 range across the
 ## requested throws. Each throw points the camera (yaw and pitch, the way
@@ -63,9 +63,7 @@ func _initialize() -> void:
 		var gauge: float = lerp(10.0, 170.0, float(i) / maxf(count - 1, 1))
 		var attack = mc.current_attack
 		var target_view = mc.far_pesa_view if attack == mc.current_half.attack_by_team_a else mc.near_pesa_view
-		var before_in_square = attack.pesa.in_square
-		var before_on_line = attack.pesa.on_line
-		var before_removed = attack.pesa.removed
+		var before = [attack.pesa.akka, attack.pesa.pappi, attack.pesa.kuokkavieras, attack.pesa.removed]
 		var before_positions: Dictionary = {}
 		for piece in target_view.get_children():
 			before_positions[piece] = piece.global_position
@@ -87,11 +85,8 @@ func _initialize() -> void:
 				continue
 			max_displacement = maxf(max_displacement, piece.global_position.distance_to(before_positions[piece]))
 		var contacted := max_displacement > 0.05
-		var scored: bool = (
-			attack.pesa.in_square != before_in_square
-			or attack.pesa.on_line != before_on_line
-			or attack.pesa.removed != before_removed
-		)
+		var after = [attack.pesa.akka, attack.pesa.pappi, attack.pesa.kuokkavieras, attack.pesa.removed]
+		var scored: bool = after != before
 		if contacted:
 			contacts += 1
 		if scored:
@@ -104,20 +99,23 @@ func _initialize() -> void:
 				thrower._karttu.linear_velocity, thrower._karttu.angular_velocity,
 				thrower._karttu.freeze,
 			])
-			var awake_pieces := 0
-			for piece in mc.near_pesa_view.get_children():
-				if not piece.sleeping:
-					awake_pieces += 1
-			for piece in mc.far_pesa_view.get_children():
-				if not piece.sleeping:
-					awake_pieces += 1
-			print("  [timeout diag] awake kyykka across both pesas: %d" % awake_pieces)
+			for view in [mc.near_pesa_view, mc.far_pesa_view]:
+				var awake := 0
+				var unsettled := 0
+				var fastest := 0.0
+				for piece in view.get_children():
+					if not piece.sleeping:
+						awake += 1
+					if not piece.is_settled():
+						unsettled += 1
+						fastest = maxf(fastest, piece.linear_velocity.length() + piece.angular_velocity.length())
+				print("  [timeout diag] %s pesa: awake %d, not settled %d (fastest %.3f)" % [
+					"target" if view == target_view else "own", awake, unsettled, fastest,
+				])
 
-		print("throw %d/%d (%s): gauge=%3.0f frames=%3d contact=%s (max_disp=%.2fm) scored=%s (in_square %d->%d, on_line %d->%d, removed %d->%d)" % [
-			i + 1, count, "back line" if from_back else "pesa line", gauge, frame_count, contacted, max_displacement, scored,
-			before_in_square, attack.pesa.in_square,
-			before_on_line, attack.pesa.on_line,
-			before_removed, attack.pesa.removed,
+		print("throw %d/%d (%s): gauge=%3.0f frames=%3d contact=%s (max_disp=%.2fm) scored=%s (akka/pappi/kuokkavieras/out %s -> %s)" % [
+			i + 1, count, "back line" if from_back else "front line", gauge, frame_count, contacted, max_displacement, scored,
+			before, after,
 		])
 
 	print("\n--- summary ---")

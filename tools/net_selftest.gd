@@ -82,11 +82,10 @@ func _on_scored() -> void:
 	for body in mc.synced_bodies():
 		checksum += body.global_position.dot(Vector3(1.0, 3.0, 7.0))
 	var r = mc.last_throw_result
-	print("RESULT %d team=%s out=%d line=%d back=%d karttu=%d/%d pesa=%d/%d/%d checksum=%.4f" % [
-		results, mc.current_attack.attacking_team.team_name,
-		r.removed_from_square, r.moved_to_line, r.removed_from_line,
+	print("RESULT %d team=%s knocked_out=%d karttu=%d/%d pesa=%d/%d/%d/%d checksum=%.4f" % [
+		results, mc.current_attack.attacking_team.team_name, r.knocked_out,
 		mc.current_attack.karttu_used, mc.current_attack.karttu_budget,
-		mc.current_attack.pesa.in_square, mc.current_attack.pesa.on_line, mc.current_attack.pesa.removed,
+		r.akka, r.pappi, r.kuokkavieras, r.removed,
 		checksum,
 	])
 	if results >= throws:

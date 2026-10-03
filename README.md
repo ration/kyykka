@@ -8,34 +8,37 @@ Kyykkä ("Finnish skittles") is one of Finland's oldest traditional games. Two t
 
 ## Rules
 
+The game follows the official rules of the Finnish kyykkä league — [Kyykän säännöt (kyykkaliiga.fi)](https://www.kyykkaliiga.fi/kyykansaannot) — for team play by men's rules.
+
 ### Playing field
 
-- A rectangular sand/gravel court, roughly 5–7 m wide and 20–22 m long.
-- A 5 m × 5 m square (*pesä*, "nest") is marked at each end of the court, with about 10 m of open space between the two squares.
-- A throwing line is marked in front of each square. The distance from the square depends on the category of player (e.g. men throw from further back than women or junior players).
+- A flat 5 × 20 m court with a 5 × 5 m square at each end; the squares are 10 m apart.
+- Each square holds the kyykkä of the team that throws from it: you throw from the square with the opponent's kyykkä at the far square, where your own stand.
 
 ### Equipment
 
-- **Kyykkä** — short wooden cylinders, about 10 cm tall and 6–8 cm in diameter. A full game uses 20 kyykkä per side (10 pairs, each pair stacked two high), lined up along the front edge of the opponent's square.
-- **Karttu** — wooden throwing bats, up to about 85 cm long, with a handle and no weight restriction. Each turn allows a limited number of karttu (commonly two per turn in team/pair play, four in individual play).
+- **Kyykkä** — wooden cylinders about 10 cm tall and 6–8 cm across. 40 per square: 20 pairs, stacked two high, along the square's front line, 10 cm clear of the side lines.
+- **Karttu** — a wooden throwing club with a round shaft and a handle, at most 85 cm long and 8 cm thick.
 
 ### Teams and turns
 
-- Played by teams of four, by pairs, or individually.
-- Each side's kyykkä are set up in the square they are defending; the opposing side throws at that square.
-- Teams alternate turns, throwing their karttu at the opponent's square and trying to knock the kyykkä pieces completely outside of it.
-- Each team's first throws are made from the back edge of the playing area, behind their own square. Once they have knocked their first kyykkä out of the opponent's square, they move up and throw from their own square's front line (their kyykkä line) for the rest of the half.
-- A short throw can hit your own kyykkä. Any knocked out of your own square count straight away as removed for the opposing team, who get the points — and, since a kyykkä is now out, may move up to their own line on their next throw.
-- A throw that fails to remove any kyykkä from the square counts as a miss.
+- Teams of four. A turn (*heittovuoro*) is two players throwing two karttu each — four in all — and then it's the other team's turn.
+- Each player throws four karttu per half, so a team has 16, in four turns. Turns alternate until both teams have thrown them all or cleared their target square; a team that's finished hands over at once and the other throws on alone.
+- **Opening** (*avaus*): you throw from the back line of your throwing square until a kyykkä has gone out of play, then from its front line.
+- Don't touch the opponent's kyykkä: any you knock in your own throwing square (a short throw) are put back where they were.
+
+### Where a kyykkä ends up
+
+- **Out** — knocked out of the square (and not into the gap in front of it): out of play.
+- **Akka** — still inside the square, or on its front line (or a side line within 10 cm of it).
+- **Pappi** — on a side or back line; it's stood upright on the line.
+- **Kuokkavieras** — knocked forward into the gap between the squares; still in play.
 
 ### Scoring
 
-- Each kyykkä knocked out of the square scores a point for the throwing team.
-- Each karttu left unused once the square has been fully cleared also scores a point.
-- A kyykkä that lands on one of the square's lines is turned upright on that line.
-- Any kyykkä still remaining once all karttu have been thrown counts against the throwing team: −2 for each one inside the square, −1 for each one standing on a line.
-- A match is played in two halves, with sides swapping ends between halves so both teams attack and defend both squares.
-- The team with the higher total score across both halves wins the match.
+- Scoring is by penalty points for what's left when a team's karttu run out: **−2** per akka, **−1** per pappi, **−2** per kuokkavieras. Knocked-out kyykkä score nothing — a half starts at −80 and climbs toward zero.
+- Clearing the square before the karttu run out instead scores **+1 per unused karttu**.
+- A match is two halves, with ends and the starting team swapped between them. Most points (fewest minus points) wins.
 
 ## Project
 

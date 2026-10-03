@@ -287,7 +287,7 @@ func _on_attack_scored() -> void:
 	var result := match_controller.last_throw_result
 	if result == null:
 		return
-	var removed := result.removed_from_square + result.removed_from_line
+	var removed := result.knocked_out
 	if removed > 0:
 		cheer(minf(0.35 + 0.15 * removed, 1.0), 1.0 + 0.3 * mini(removed, 5))
 
