@@ -98,6 +98,8 @@ func _ready() -> void:
 	if crowd != null:
 		crowd.cheered.connect(_on_crowd_cheered)
 		crowd.booed.connect(_on_crowd_booed)
+		# Somebody got hit: the karttu's wooden thud, on them, at full strength.
+		crowd.knocked_down.connect(func(at: Vector3) -> void: play_impact(Kind.KARTTU_LAND, 8.0, at))
 		_boo_player = AudioStreamPlayer.new()
 		add_child(_boo_player)
 		_start_cheer_render()

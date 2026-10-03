@@ -10,7 +10,8 @@ extends Node3D
 ## often. They sway idly and cheer — arms up, jumping — when a throw knocks kyykkä
 ## out (more of them, for longer, the more it knocked out), and all of them
 ## when the match ends. Throw the karttu into them and those near where it
-## came in duck while the rest boo (see boo()). One of them, front row near
+## came in duck while the rest boo (see boo()); hit someone and they go
+## down as a Ragdoll before getting back up (knock_down()). One of them, front row near
 ## the middle (so the thrower sees him from either end), wears
 ## `shirt_logo` on his chest. Added by court.gd and handed the
 ## MatchController, like the HUD; CourtAudio listens to `cheered` and
@@ -19,6 +20,8 @@ extends Node3D
 signal cheered(fraction: float, seconds: float)
 ## The karttu landed in among the spectators at `point` (once per throw).
 signal booed(point: Vector3)
+## It actually hit someone, who's now falling over as a ragdoll.
+signal knocked_down(point: Vector3)
 
 ## Overall colours, one per guild.
 const GUILD_COLORS: Array[Color] = [
@@ -39,6 +42,11 @@ const HIT_RADIUS := 0.9       ## karttu centre this close to someone (on the gro
 const HIT_MAX_HEIGHT := 2.2   ## ...and no higher than a head, give or take
 const DUCK_RADIUS := 2.2      ## people this close to where it came in duck
 const BOO_SECONDS := 3.0
+const KNOCKDOWN_RADIUS := 0.45  ## karttu this close to someone's body (ground plane) knocks them over
+## The karttu's own momentum (2 kg at ~16 m/s) barely rocks 70 kg; played
+## for laughs, it's a lot more.
+const KNOCKDOWN_IMPULSE := 260.0
+const KNOCKDOWN_MIN_SPEED := 1.5  ## m/s; a karttu that's all but stopped just bumps their shoes
 
 var match_controller: MatchController
 var court_width: float = 5.0
@@ -48,6 +56,7 @@ var shirt_logo: Texture2D  ## optional; printed on one spectator's chest
 var _spectators: Array[Dictionary] = []
 var _time: float = 0.0
 var _watching: bool = false  ## a karttu is in the air or sliding
+var _ragdolls: Dictionary = {}  ## spectator index -> Ragdoll, while they're down
 var _booed_this_throw: bool = false
 
 
@@ -99,7 +108,7 @@ func _ready() -> void:
 			"node": person, "down": down, "up": meshes[SpectatorMesh.Pose.CHEER], "base": base,
 			"drink": meshes.get(SpectatorMesh.Pose.DRINK),
 			"boo": meshes[SpectatorMesh.Pose.BOO], "duck": meshes[SpectatorMesh.Pose.DUCK],
-			"boo_from": -1.0, "boo_until": -1.0, "duck_until": -1.0,
+			"boo_from": -1.0, "boo_until": -1.0, "duck_until": -1.0, "look": look,
 			"next_drink": rng.randf_range(1.0, BETWEEN_DRINKS.y), "drink_until": -1.0,
 			"phase": rng.randf() * TAU, "sway_rate": rng.randf_range(0.8, 1.6),
 			"jump_rate": rng.randf_range(8.0, 11.0), "cheer_from": -1.0, "cheer_until": -1.0,
@@ -208,15 +217,60 @@ func _positions() -> Array[Vector3]:
 	return positions
 
 
-## Is the flying or sliding karttu in among the spectators?
+## Is the flying or sliding karttu in among the spectators? The boo goes
+## up the first time it comes near anyone; knocking someone over is checked
+## for the rest of the throw, since it often only reaches a body after
+## skidding in.
 func _check_karttu() -> void:
-	if not _watching or _booed_this_throw or match_controller == null or match_controller.thrower == null:
+	if not _watching or match_controller == null or match_controller.thrower == null:
 		return
-	var at := match_controller.thrower.karttu().global_position
+	var karttu := match_controller.thrower.karttu()
+	var at := karttu.global_position
 	if absf(at.x) < court_width / 2.0 or at.y > HIT_MAX_HEIGHT:
 		return  # still over the court, or sailing over their heads
-	if not spectators_near(_positions(), at, HIT_RADIUS).is_empty():
+	if not _booed_this_throw and not spectators_near(_positions(), at, HIT_RADIUS).is_empty():
 		boo(at)
+	var hit := spectators_near(_positions(), at, KNOCKDOWN_RADIUS)
+	if not hit.is_empty() and karttu.linear_velocity.length() > KNOCKDOWN_MIN_SPEED:
+		knock_down(_closest(hit, at), at, karttu.linear_velocity)
+
+
+func _closest(indices: Array[int], point: Vector3) -> int:
+	var best := indices[0]
+	for i in indices:
+		var here: Vector3 = _spectators[i].base.origin
+		var there: Vector3 = _spectators[best].base.origin
+		if Vector2(here.x - point.x, here.z - point.z).length() < Vector2(there.x - point.x, there.z - point.z).length():
+			best = i
+	return best
+
+
+## Spectator `index` was hit at `point` by something moving at `velocity`:
+## they fall over as a Ragdoll (their mesh hidden meanwhile), then get up.
+func knock_down(index: int, point: Vector3, velocity: Vector3) -> void:
+	if _ragdolls.has(index):
+		return
+	var s: Dictionary = _spectators[index]
+	var node: MeshInstance3D = s.node
+	var base: Transform3D = s.base
+	var flat := Vector3(velocity.x, 0.0, velocity.z)
+	var away: Vector3 = flat.normalized() if flat.length() > 0.1 else (base.origin - point).normalized()
+	var push := away * KNOCKDOWN_IMPULSE
+	var ragdoll := Ragdoll.create(s.look, base, push + Vector3.UP * KNOCKDOWN_IMPULSE * 0.15, point)
+	ragdoll.finished.connect(_on_ragdoll_finished.bind(index))
+	add_child(ragdoll)
+	_ragdolls[index] = ragdoll
+	node.visible = false
+	knocked_down.emit(point)
+
+
+func _on_ragdoll_finished(index: int) -> void:
+	_ragdolls.erase(index)
+	var s: Dictionary = _spectators[index]
+	s.node.visible = true
+	s.duck_until = -1.0
+	s.boo_from = _time  # back up and furious
+	s.boo_until = _time + BOO_SECONDS
 
 
 ## `fraction` of the crowd, picked at random, cheers for about `seconds`,

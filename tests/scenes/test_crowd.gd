@@ -148,3 +148,19 @@ func test_only_one_boo_per_throw() -> void:
 	crowd.boo(crowd._spectators[0].base.origin)
 	crowd.boo(crowd._spectators[3].base.origin)
 	assert_signal_emit_count(crowd, "booed", 1)
+
+
+func test_knocked_down_spectator_is_replaced_by_a_ragdoll_then_gets_up() -> void:
+	var crowd := _crowd()
+	var at: Vector3 = crowd._spectators[2].base.origin
+	watch_signals(crowd)
+	crowd.knock_down(2, at + Vector3(0, 1, 0), Vector3(-12, 0, 0))
+	assert_signal_emitted(crowd, "knocked_down")
+	assert_false(crowd._spectators[2].node.visible, "their mesh is hidden...")
+	assert_true(crowd._ragdolls.has(2), "...while the ragdoll is down")
+	crowd.knock_down(2, at, Vector3(-12, 0, 0))
+	assert_signal_emit_count(crowd, "knocked_down", 1, "can't knock them down twice")
+	crowd._ragdolls[2].finished.emit()
+	assert_true(crowd._spectators[2].node.visible, "back up")
+	assert_false(crowd._ragdolls.has(2))
+	assert_gt(crowd._spectators[2].boo_until, crowd._time, "and booing")
