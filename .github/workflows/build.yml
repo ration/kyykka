@@ -60,8 +60,6 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - uses: android-actions/setup-android@v3
-
       - name: Point Godot at the Android SDK and a debug keystore
         run: |
           # A throwaway debug key: the APK is for sideloading, not the Play Store.
@@ -69,11 +67,15 @@ jobs:
           keytool -genkeypair -keystore ~/.local/share/godot/keystores/debug.keystore \
             -storepass android -alias androiddebugkey -keypass android -keyalg RSA \
             -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
-          sdkmanager "platform-tools" "build-tools;35.0.0" "platforms;android-35" > /dev/null
+          # The runner image ships the Android SDK (ANDROID_SDK_ROOT); make
+          # sure the bits Godot's export uses are there.
+          sdk="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          echo "ANDROID_SDK_ROOT=$sdk" >> "$GITHUB_ENV"
+          yes | "$sdk"/cmdline-tools/latest/bin/sdkmanager "platform-tools" "build-tools;35.0.0" "platforms;android-35" > /dev/null
           mkdir -p ~/.config/godot
           printf '%s\n' \
             '[gd_resource type="EditorSettings" format=3]' '' '[resource]' \
-            "export/android/android_sdk_path = \"$ANDROID_SDK_ROOT\"" \
+            "export/android/android_sdk_path = \"$sdk\"" \
             "export/android/java_sdk_path = \"$JAVA_HOME\"" \
             "export/android/debug_keystore = \"$HOME/.local/share/godot/keystores/debug.keystore\"" \
             'export/android/debug_keystore_user = "androiddebugkey"' \
