@@ -22,7 +22,8 @@ const LOT_COURT_GAP := 9.0     ## metres between neighbouring courts' side lines
 const NEIGHBOUR_COURTS := [-3, -2, -1, 1, 2, 3]  ## slots either side of ours (0)
 const COURT_SIZE := Vector2(5.0, 20.0)
 const PESA_DEPTH := 5.0
-const OFFICE_RING := Vector2(95.0, 170.0)  ## office blocks between these distances
+const OFFICE_RING := Vector2(110.0, 175.0)  ## office blocks between these distances
+const OFFICE_COUNT := 14  ## once round the lot, so any one view shows about eight or fewer
 const OFFICE_FLOOR := 3.6      ## metres per storey
 const SNOWBANK_HEIGHT := 1.6
 const PAINT_MARKER := Color(1, 0, 1)  ## car vertex colour replaced by the instance's paint
@@ -399,9 +400,9 @@ func _build_lamps() -> Node3D:
 	return lamps
 
 
-## An office park around the lot: blocks of about six storeys (five to
-## seven), glass curtain walls or punched windows in brick/concrete, snow
-## on the flat roofs, with the occasional taller one. The same unit-box
+## An office park around the lot: OFFICE_COUNT separate blocks of about
+## six storeys (five to seven) with open snow between them, glass curtain
+## walls or punched windows in brick/concrete, snow on the flat roofs. The same unit-box
 ## MultiMesh and shader as the tower mode's city.
 func _build_offices() -> MultiMeshInstance3D:
 	var rng := RandomNumberGenerator.new()
@@ -412,17 +413,17 @@ func _build_offices() -> MultiMeshInstance3D:
 		Color(0.52, 0.30, 0.22), Color(0.58, 0.36, 0.27), Color(0.84, 0.82, 0.78),
 		Color(0.74, 0.72, 0.68), Color(0.42, 0.45, 0.50), Color(0.30, 0.32, 0.36),
 	]
-	var angle := rng.randf() * TAU
-	while angle < rng.randf() * TAU + TAU * 3.0:
+	var start := rng.randf() * TAU
+	for i in range(OFFICE_COUNT):
+		var angle := start + (i + rng.randf_range(-0.3, 0.3)) * TAU / OFFICE_COUNT
 		var distance := rng.randf_range(OFFICE_RING.x, OFFICE_RING.y)
 		var width := rng.randf_range(24.0, 60.0)
 		var depth := rng.randf_range(14.0, 22.0)
 		var storeys := rng.randi_range(5, 7)
 		var at := Vector2(cos(angle), sin(angle)) * distance
-		# Keep them off the lot and its banks.
-		if absf(at.x) < LOT_HALF_SIZE.x + depth and absf(at.y) < LOT_HALF_SIZE.y + depth:
-			angle += 0.05
-			continue
+		# Keep them off the lot and its banks: push out along the same bearing.
+		while absf(at.x) < LOT_HALF_SIZE.x + depth and absf(at.y) < LOT_HALF_SIZE.y + depth:
+			at *= 1.1
 		# Long side roughly facing the lot.
 		var yaw := atan2(at.x, at.y) + rng.randf_range(-0.15, 0.15)
 		var glassy := rng.randf()
@@ -437,7 +438,6 @@ func _build_offices() -> MultiMeshInstance3D:
 			var wing_height := (storeys - rng.randi_range(0, 2)) * OFFICE_FLOOR + 0.6
 			var wing := basis * Vector3(width / 2.0 - depth / 2.0, 0, -depth)
 			buildings.append(_building(basis, Vector3(at.x + wing.x, wing_height / 2.0, at.y + wing.z), Vector3(depth, wing_height, depth * 1.4), color, style))
-		angle += (width + rng.randf_range(10.0, 30.0)) / distance
 
 	var material := ShaderMaterial.new()
 	material.shader = BUILDING_SHADER
