@@ -16,12 +16,13 @@ extends RefCounted
 ## own hairstyle and face, and looks a little to one side.
 ##
 ## Each person gets one mesh per Pose — standing, cheering (arms up, mouth
-## open) and, for those who brought a can, drinking from it (right arm
-## bent up to the mouth, head tipped back) — and Crowd swaps between them
-## rather than rigging arms. build_poses() builds the body below the neck
-## once and reuses it for every pose.
+## open), booing (fists shaken in front, chin down, mouth open), ducking
+## (forearms over the face, head tucked) and, for those who brought a can,
+## drinking from it (right arm bent up to the mouth, head tipped back) —
+## and Crowd swaps between them rather than rigging arms. build_poses()
+## builds the body below the neck once and reuses it for every pose.
 
-enum Pose { DOWN, CHEER, DRINK }
+enum Pose { DOWN, CHEER, DRINK, BOO, DUCK }
 
 const SKIN_TONES: Array[Color] = [
 	Color(0.96, 0.80, 0.69), Color(0.93, 0.75, 0.62), Color(0.89, 0.69, 0.56),
@@ -54,6 +55,8 @@ const HEAD := Vector3(0, 1.625, 0)
 const MOUTH := Vector3(0, 1.56, 0.097)
 const DRINK_HEAD_TILT := 0.35      ## radians
 const CHEER_HEAD_TILT := 0.12
+const BOO_HEAD_TILT := -0.12   ## chin down, glaring
+const DUCK_HEAD_TILT := -0.35  ## head tucked behind the arms
 const HIP_HEIGHT := 0.9
 const THIGH := 0.41
 const SHIN := 0.40
@@ -249,7 +252,12 @@ static func _add_pose(p: Parts, look: Dictionary, pose: Pose) -> void:
 			if look.can != null:
 				turn = 0.0
 				tilt = DRINK_HEAD_TILT
-	_add_head(p, look, _head_transform(turn, tilt), pose == Pose.CHEER)
+		Pose.BOO:
+			tilt = BOO_HEAD_TILT
+		Pose.DUCK:
+			turn = 0.0
+			tilt = DUCK_HEAD_TILT
+	_add_head(p, look, _head_transform(turn, tilt), pose == Pose.CHEER or pose == Pose.BOO)
 	for side: int in [-1, 1]:
 		_add_arm(p, look, side, pose)
 
@@ -387,6 +395,16 @@ static func _add_arm(p: Parts, look: Dictionary, side: int, pose: Pose) -> void:
 		wrist = Vector3(0.06, 1.5, 0.17)
 		pole = Vector3(1, -0.6, 0.2)
 		hand_side = Vector3.RIGHT
+	elif pose == Pose.BOO:
+		# Fists raised in front of the shoulders, elbows out, shaking.
+		wrist = Vector3(0.3 * side, 1.58, 0.24)
+		pole = Vector3(side, -0.9, -0.3)
+		hand_side = Vector3.UP
+	elif pose == Pose.DUCK:
+		# Forearms crossed in front of the face, shielding it.
+		wrist = Vector3(-0.07 * side, 1.66 + 0.03 * side, 0.17 + 0.02 * side)
+		pole = Vector3(side, -0.6, 0.3)
+		hand_side = Vector3.UP
 	else:
 		match stance:
 			"pockets":
@@ -432,6 +450,8 @@ static func _add_arm(p: Parts, look: Dictionary, side: int, pose: Pose) -> void:
 		var mitten: Color = look.accessory
 		_ellipsoid(p, Vector3.ZERO, Vector3(0.042, 0.058, 0.03), mitten, frame)
 		_ellipsoid(p, Vector3(0.03 * side, -0.01, 0.012), Vector3(0.014, 0.03, 0.014), mitten, frame, 0.0, 1.0, 4, 6)
+	elif pose == Pose.BOO:
+		_ellipsoid(p, Vector3(0, -0.01, 0), Vector3(0.04, 0.04, 0.035), skin, frame)  # a fist
 	else:
 		_ellipsoid(p, Vector3.ZERO, Vector3(0.035, 0.052, 0.018), skin, frame)
 		_tube(p, Vector3(0.025 * side, -0.025, 0.008), Vector3(0.04 * side, 0.015, 0.012), 0.01, 0.009, skin, 6, 1.0, frame)

@@ -139,6 +139,25 @@ func test_crowd_cheers_are_loud_then_fade_out() -> void:
 		assert_gt(_rms(samples.slice(0, quarter)), 4.0 * _rms(samples.slice(3 * quarter)), "big=%s" % big)
 
 
+func test_crowd_boo_holds_then_fades_and_is_lower_than_a_cheer() -> void:
+	var boo := SoundSynth.crowd_boo(1)
+	var samples := _samples(boo)
+	assert_almost_eq(_peak(boo), SoundSynth.PEAK, 0.01)
+	var quarter := samples.size() / 4
+	assert_gt(_rms(samples.slice(quarter, 2 * quarter)), 4.0 * _rms(samples.slice(samples.size() - quarter / 3)), "holds, then fades out")
+	# Low voices, no clapping: fewer zero crossings than a cheer.
+	assert_lt(_crossings(samples), _crossings(_samples(SoundSynth.crowd_cheer(1, false))) * samples.size() / float(_samples(SoundSynth.crowd_cheer(1, false)).size()))
+	assert_eq(SoundSynth.crowd_boo(2).data, SoundSynth.crowd_boo(2).data, "deterministic per seed")
+
+
+func _crossings(samples: PackedFloat32Array) -> int:
+	var count := 0
+	for i in range(1, samples.size()):
+		if (samples[i] >= 0.0) != (samples[i - 1] >= 0.0):
+			count += 1
+	return count
+
+
 func test_crowd_cheer_is_deterministic_per_seed() -> void:
 	assert_eq(SoundSynth.crowd_cheer(3, false).data, SoundSynth.crowd_cheer(3, false).data)
 

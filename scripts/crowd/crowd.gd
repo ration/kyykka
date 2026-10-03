@@ -9,11 +9,16 @@ extends Node3D
 ## About half of them brought a can and take a swig from it every so
 ## often. They sway idly and cheer — arms up, jumping — when a throw knocks kyykkä
 ## out (more of them, for longer, the more it knocked out), and all of them
-## when the match ends. One of them, front row near the middle (so the
-## thrower sees him from either end), wears `shirt_logo` on his chest. Added by court.gd and handed the MatchController,
-## like the HUD; CourtAudio listens to `cheered` for the sound.
+## when the match ends. Throw the karttu into them and those near where it
+## came in duck while the rest boo (see boo()). One of them, front row near
+## the middle (so the thrower sees him from either end), wears
+## `shirt_logo` on his chest. Added by court.gd and handed the
+## MatchController, like the HUD; CourtAudio listens to `cheered` and
+## `booed` for the sound.
 
 signal cheered(fraction: float, seconds: float)
+## The karttu landed in among the spectators at `point` (once per throw).
+signal booed(point: Vector3)
 
 ## Overall colours, one per guild.
 const GUILD_COLORS: Array[Color] = [
@@ -30,6 +35,10 @@ const MIN_SPACING := 0.55        ## metres between two spectators
 const SEED := 2024
 const DRINK_SECONDS := Vector2(1.6, 2.8)     ## how long one swig lasts
 const BETWEEN_DRINKS := Vector2(8.0, 25.0)   ## seconds from one swig to the next
+const HIT_RADIUS := 0.9       ## karttu centre this close to someone (on the ground plane) = into the crowd
+const HIT_MAX_HEIGHT := 2.2   ## ...and no higher than a head, give or take
+const DUCK_RADIUS := 2.2      ## people this close to where it came in duck
+const BOO_SECONDS := 3.0
 
 var match_controller: MatchController
 var court_width: float = 5.0
@@ -38,6 +47,8 @@ var shirt_logo: Texture2D  ## optional; printed on one spectator's chest
 
 var _spectators: Array[Dictionary] = []
 var _time: float = 0.0
+var _watching: bool = false  ## a karttu is in the air or sliding
+var _booed_this_throw: bool = false
 
 
 func _ready() -> void:
@@ -72,7 +83,7 @@ func _ready() -> void:
 			look.chest_patch = winter  # the shirt's under zipped-up overalls
 		var person := MeshInstance3D.new()
 		person.material_override = material
-		var poses := [SpectatorMesh.Pose.DOWN, SpectatorMesh.Pose.CHEER]
+		var poses := [SpectatorMesh.Pose.DOWN, SpectatorMesh.Pose.CHEER, SpectatorMesh.Pose.BOO, SpectatorMesh.Pose.DUCK]
 		if look.can != null:
 			poses.append(SpectatorMesh.Pose.DRINK)
 		var meshes := SpectatorMesh.build_poses(look, poses)
@@ -87,6 +98,8 @@ func _ready() -> void:
 		_spectators.append({
 			"node": person, "down": down, "up": meshes[SpectatorMesh.Pose.CHEER], "base": base,
 			"drink": meshes.get(SpectatorMesh.Pose.DRINK),
+			"boo": meshes[SpectatorMesh.Pose.BOO], "duck": meshes[SpectatorMesh.Pose.DUCK],
+			"boo_from": -1.0, "boo_until": -1.0, "duck_until": -1.0,
 			"next_drink": rng.randf_range(1.0, BETWEEN_DRINKS.y), "drink_until": -1.0,
 			"phase": rng.randf() * TAU, "sway_rate": rng.randf_range(0.8, 1.6),
 			"jump_rate": rng.randf_range(8.0, 11.0), "cheer_from": -1.0, "cheer_until": -1.0,
@@ -95,6 +108,12 @@ func _ready() -> void:
 	if match_controller != null:
 		match_controller.attack_scored.connect(_on_attack_scored)
 		match_controller.match_finished.connect(cheer.bind(1.0, 4.0))
+		var thrower := match_controller.thrower
+		if thrower != null:
+			thrower.thrown.connect(func() -> void:
+				_watching = true
+				_booed_this_throw = false)
+			thrower.throw_settled.connect(func() -> void: _watching = false)
 
 
 ## Where everyone stands: groups of 3-8 along both long sides, in a band
@@ -150,6 +169,56 @@ static func layout(rng: RandomNumberGenerator, half_width: float, half_length: f
 	return spots
 
 
+## Indices of the spectators within `radius` of `point` on the ground
+## plane (positions are where they stand, feet at y = 0).
+static func spectators_near(positions: Array[Vector3], point: Vector3, radius: float) -> Array[int]:
+	var near: Array[int] = []
+	var flat := Vector2(point.x, point.z)
+	for i in range(positions.size()):
+		if Vector2(positions[i].x, positions[i].z).distance_to(flat) <= radius:
+			near.append(i)
+	return near
+
+
+## The karttu came down among the spectators at `point`: those nearby duck
+## (arms over their faces), everyone else boos — fists up, glaring — and
+## any cheering stops. Once per throw.
+func boo(point: Vector3) -> void:
+	if _booed_this_throw:
+		return
+	_booed_this_throw = true
+	booed.emit(point)
+	var ducking := spectators_near(_positions(), point, DUCK_RADIUS)
+	for i in range(_spectators.size()):
+		var s: Dictionary = _spectators[i]
+		s.cheer_until = -1.0
+		s.drink_until = -1.0
+		if i in ducking:
+			s.duck_until = _time + randf_range(0.9, 1.4)
+			s.boo_from = s.duck_until
+		else:
+			s.boo_from = _time + randf_range(0.05, 0.5)
+		s.boo_until = s.boo_from + BOO_SECONDS * randf_range(0.7, 1.1)
+
+
+func _positions() -> Array[Vector3]:
+	var positions: Array[Vector3] = []
+	for s in _spectators:
+		positions.append((s.base as Transform3D).origin)
+	return positions
+
+
+## Is the flying or sliding karttu in among the spectators?
+func _check_karttu() -> void:
+	if not _watching or _booed_this_throw or match_controller == null or match_controller.thrower == null:
+		return
+	var at := match_controller.thrower.karttu().global_position
+	if absf(at.x) < court_width / 2.0 or at.y > HIT_MAX_HEIGHT:
+		return  # still over the court, or sailing over their heads
+	if not spectators_near(_positions(), at, HIT_RADIUS).is_empty():
+		boo(at)
+
+
 ## `fraction` of the crowd, picked at random, cheers for about `seconds`,
 ## each starting with a little delay.
 func cheer(fraction: float, seconds: float) -> void:
@@ -171,8 +240,11 @@ func _on_attack_scored() -> void:
 
 func _process(delta: float) -> void:
 	_time += delta
+	_check_karttu()
 	for s in _spectators:
 		var node: MeshInstance3D = s.node
+		var ducking: bool = _time < s.duck_until
+		var booing: bool = not ducking and _time >= s.boo_from and _time < s.boo_until
 		var cheering: bool = _time >= s.cheer_from and _time < s.cheer_until
 		if s.drink != null and _time >= s.next_drink:
 			if cheering:
@@ -181,7 +253,11 @@ func _process(delta: float) -> void:
 				s.drink_until = _time + randf_range(DRINK_SECONDS.x, DRINK_SECONDS.y)
 				s.next_drink = s.drink_until + randf_range(BETWEEN_DRINKS.x, BETWEEN_DRINKS.y)
 		var mesh: ArrayMesh = s.down
-		if cheering:
+		if ducking:
+			mesh = s.duck
+		elif booing:
+			mesh = s.boo
+		elif cheering:
 			mesh = s.up
 		elif _time < s.drink_until:
 			mesh = s.drink
@@ -189,4 +265,11 @@ func _process(delta: float) -> void:
 			node.mesh = mesh
 		var sway := sin(_time * s.sway_rate + s.phase) * 0.025
 		var lift := absf(sin((_time - s.cheer_from) * s.jump_rate)) * 0.12 if cheering else 0.0
-		node.transform = s.base * Transform3D(Basis(Vector3.BACK, sway), Vector3(0, lift, 0))
+		var crouch := Basis.IDENTITY
+		if ducking:
+			# Knees bent and leaning away: squash down a bit and tip back.
+			crouch = Basis(Vector3.RIGHT, -0.25).scaled(Vector3(1.0, 0.82, 1.0))
+		elif booing:
+			# Shaking their fists: a quick side-to-side rock.
+			sway += sin((_time - s.boo_from) * s.jump_rate * 1.4) * 0.06
+		node.transform = s.base * Transform3D(Basis(Vector3.BACK, sway) * crouch, Vector3(0, lift, 0))

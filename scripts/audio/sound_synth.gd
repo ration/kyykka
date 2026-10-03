@@ -176,6 +176,7 @@ const VOWEL_AE := Vector3(660, 1720, 2410)  ## Finnish "ä"
 const VOWEL_E := Vector3(530, 1840, 2480)
 const VOWEL_I := Vector3(300, 2250, 2950)
 const VOWEL_U := Vector3(320, 870, 2240)
+const VOWEL_O := Vector3(450, 800, 2830)
 const FEMALE_FORMANTS := 1.17
 
 
@@ -232,6 +233,43 @@ static func crowd_cheer(seed: int, big: bool) -> AudioStreamWAV:
 	var fade_from := int(duration * 0.5 * MIX_RATE)
 	for i in range(fade_from, buf.size()):
 		buf[i] *= pow(1.0 - float(i - fade_from) / (buf.size() - fade_from), 1.5)
+	return _to_stream(buf)
+
+
+## A crowd booing: ~24 voices, mostly low, holding a long "buuuu" (the U
+## vowel, rounding toward O), pitch sagging as they go, starting raggedly
+## and swelling before everyone runs out of breath; a few jeer short
+## "buu! buu!"s on top. No clapping. Same source-filter voices as
+## crowd_cheer().
+static func crowd_boo(seed: int) -> AudioStreamWAV:
+	var rng := _rng(seed)
+	var duration := 3.2
+	var vowels: Array[Vector3] = [VOWEL_U, VOWEL_O]
+	var sources: Array[PackedFloat32Array] = []  # [vowel * 2 + female]
+	for i in range(vowels.size() * 2):
+		sources.append(_silence(duration))
+	for v in range(24):
+		var female := rng.randf() < 0.3
+		var source := sources[rng.randi() % vowels.size() * 2 + int(female)]
+		var f0 := rng.randf_range(180.0, 260.0) if female else rng.randf_range(95.0, 150.0)
+		var amp := rng.randf_range(0.5, 1.0)
+		if rng.randf() < 0.2:
+			# Jeering: "buu! buu!"
+			var at := rng.randf_range(0.2, 0.8)
+			for syllable in range(rng.randi_range(2, 3)):
+				_add_voice(source, rng, at, 0.3, f0 * 1.15, f0 * 1.2, f0 * 0.9, amp * 0.8, 0.2)
+				at += rng.randf_range(0.4, 0.5)
+		else:
+			var start := pow(rng.randf(), 1.5) * 0.5
+			var length := rng.randf_range(2.0, duration - start - 0.05)
+			_add_voice(source, rng, start, length, f0, f0 * 1.05, f0 * 0.82, amp, 0.25)
+	var buf := _silence(duration)
+	for i in range(sources.size()):
+		var formants := vowels[i >> 1] * (FEMALE_FORMANTS if i % 2 == 1 else 1.0)
+		_mix(buf, _formants(sources[i], formants, formants), 1.0)
+	var fade_from := int(duration * 0.7 * MIX_RATE)
+	for i in range(fade_from, buf.size()):
+		buf[i] *= pow(1.0 - float(i - fade_from) / (buf.size() - fade_from), 1.2)
 	return _to_stream(buf)
 
 

@@ -158,6 +158,11 @@ func set_line_offset(metres: float) -> void:
 	_update_camera()
 
 
+## The karttu this thrower throws (one instance, reused every turn).
+func karttu() -> Karttu:
+	return _karttu
+
+
 func line_offset() -> float:
 	return _line_offset
 

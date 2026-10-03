@@ -108,3 +108,43 @@ func test_build_poses_matches_build() -> void:
 		var alone: Array = SpectatorMesh.build(look, pose).surface_get_arrays(0)
 		assert_eq(shared[Mesh.ARRAY_VERTEX], alone[Mesh.ARRAY_VERTEX])
 		assert_eq(shared[Mesh.ARRAY_INDEX], alone[Mesh.ARRAY_INDEX])
+
+
+func test_spectators_near_measures_on_the_ground_plane() -> void:
+	var positions: Array[Vector3] = [Vector3(4.5, 0, 0), Vector3(5.2, 0, 0.3), Vector3(8.0, 0, 0), Vector3(4.5, 0, 3.0)]
+	assert_eq(Crowd.spectators_near(positions, Vector3(4.6, 1.5, 0.1), 0.9), [0, 1] as Array[int], "height ignored")
+	assert_eq(Crowd.spectators_near(positions, Vector3(0, 0.2, 0), 0.9), [] as Array[int], "over the court")
+
+
+func _crowd() -> Crowd:
+	var crowd := Crowd.new()
+	add_child_autofree(crowd)
+	return crowd
+
+
+func test_boo_makes_those_nearby_duck_and_the_rest_boo() -> void:
+	var crowd := _crowd()
+	var target: Vector3 = crowd._spectators[0].base.origin
+	crowd.cheer(1.0, 5.0)
+	watch_signals(crowd)
+	crowd.boo(target)
+	assert_signal_emitted_with_parameters(crowd, "booed", [target])
+	var near := Crowd.spectators_near(crowd._positions(), target, Crowd.DUCK_RADIUS)
+	assert_true(0 in near)
+	for i in range(crowd._spectators.size()):
+		var s: Dictionary = crowd._spectators[i]
+		assert_lt(s.cheer_until, crowd._time, "cheering stops")
+		if i in near:
+			assert_gt(s.duck_until, crowd._time, "ducks")
+		assert_gt(s.boo_until, s.boo_from, "boos")
+	# Rendered pose: the one it came at is ducking right away.
+	crowd._process(0.01)
+	assert_eq(crowd._spectators[0].node.mesh, crowd._spectators[0].duck)
+
+
+func test_only_one_boo_per_throw() -> void:
+	var crowd := _crowd()
+	watch_signals(crowd)
+	crowd.boo(crowd._spectators[0].base.origin)
+	crowd.boo(crowd._spectators[3].base.origin)
+	assert_signal_emit_count(crowd, "booed", 1)

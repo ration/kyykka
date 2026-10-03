@@ -14,7 +14,7 @@ extends Node3D
 ## under IMPACT_THRESHOLD, and a pair that just played is muted for
 ## PAIR_COOLDOWN_MS so a bouncing landing doesn't rattle.
 ##
-## The crowd's cheers take ~0.5-1 s each to synthesise, so they're rendered
+## The crowd's cheers and boo take ~0.5-1 s each to synthesise, so they're rendered
 ## on a WorkerThreadPool task (then kept in SoundSynth's cache); a cheer
 ## before they're ready is just silent.
 
@@ -78,6 +78,8 @@ var _big_cheer_stream: AudioStreamWAV
 var _cheer_players: Array[AudioStreamPlayer] = []
 var _cheer_task: int = -1
 var _rendered_cheers: Array[AudioStreamWAV] = []  ## written by the render task only
+var _boo_stream: AudioStreamWAV  ## once rendered (with the cheers)
+var _boo_player: AudioStreamPlayer
 
 
 func _ready() -> void:
@@ -95,6 +97,9 @@ func _ready() -> void:
 	match_controller.match_finished.connect(_play_cue.bind(_jingle_stream, -3.0))
 	if crowd != null:
 		crowd.cheered.connect(_on_crowd_cheered)
+		crowd.booed.connect(_on_crowd_booed)
+		_boo_player = AudioStreamPlayer.new()
+		add_child(_boo_player)
 		_start_cheer_render()
 
 
@@ -316,6 +321,7 @@ func _start_cheer_render() -> void:
 		for v in range(CHEER_VARIANTS):
 			_cheer_streams.append(SoundSynth.lookup("cheer:%d" % v))
 		_big_cheer_stream = SoundSynth.lookup("cheer_big")
+		_boo_stream = SoundSynth.lookup("boo")
 	elif DisplayServer.get_name() != "headless":  # nobody listening in tests/tools
 		_cheer_task = WorkerThreadPool.add_task(_render_cheers)
 
@@ -324,6 +330,7 @@ func _render_cheers() -> void:
 	for v in range(CHEER_VARIANTS):
 		_rendered_cheers.append(SoundSynth.crowd_cheer(200 + v, false))
 	_rendered_cheers.append(SoundSynth.crowd_cheer(300, true))
+	_rendered_cheers.append(SoundSynth.crowd_boo(400))
 
 
 func _process(_delta: float) -> void:
@@ -336,6 +343,8 @@ func _process(_delta: float) -> void:
 		_cheer_streams.append(_rendered_cheers[v])
 	_big_cheer_stream = _rendered_cheers[CHEER_VARIANTS]
 	SoundSynth.store("cheer_big", _big_cheer_stream)
+	_boo_stream = _rendered_cheers[CHEER_VARIANTS + 1]
+	SoundSynth.store("boo", _boo_stream)
 
 
 func _exit_tree() -> void:
@@ -354,3 +363,16 @@ func _on_crowd_cheered(fraction: float, seconds: float) -> void:
 	player.volume_db = -6.0 + linear_to_db(clampf(fraction, 0.3, 1.0))
 	player.pitch_scale = randf_range(0.95, 1.05)
 	player.play()
+
+
+## The karttu went into the crowd: they boo, and whoever it came at cut
+## off their cheer.
+func _on_crowd_booed(_point: Vector3) -> void:
+	for player in _cheer_players:
+		player.stop()
+	if _boo_stream == null:
+		return
+	_boo_player.stream = _boo_stream
+	_boo_player.volume_db = -5.0
+	_boo_player.pitch_scale = randf_range(0.95, 1.05)
+	_boo_player.play()
