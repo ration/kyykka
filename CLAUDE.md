@@ -166,15 +166,16 @@ Three fixes, in order. (1) Raising `physics/common/physics_ticks_per_second` to 
 
 ## Commands
 
-Run via `make` (see `make help`); each target just wraps a `tools/*.sh` script or a direct Godot CLI call:
+Run via `make` (see `make help`); each target just wraps a `tools/*.sh` script or a direct Godot CLI call. `GODOT=/path/to/godot` overrides the binary. Targets that run the project depend on `.godot/global_script_class_cache.cfg`, so a fresh clone imports itself first — without the import the game fails with "Identifier ... not declared" for every `class_name`. `make import` forces a re-import.
 
 - `make run` — run the game (`tools/run.sh`, wraps `godot --path .`)
 - `make edit` — open the project in the editor (`godot -e --path .`)
 - `make check` — headless smoke test: loads the project and main scene, then quits. Useful to catch script/scene errors without a display: `godot --headless --path . --quit`
 - `make export PRESET="<preset name>" OUT=builds/kyykka` — export a build (`tools/export.sh`). This requires export presets to exist first — none are checked in yet. Create them once via the editor (Project > Export...), which writes `export_presets.cfg`, and install matching export templates first (Editor > Manage Export Templates). `export_presets.cfg` is safe to commit once it exists.
-- `make clean` — remove local build/import artifacts (`.godot/`, `builds/`)
+- `make simulate [COUNT=16] [MODE=summer|winter|tower]`, `make screenshot [MODE=…] [OUT_DIR=screenshots]`, `make net-selftest [THROWS=6]` — wrap the three `tools/*.gd` tools below (`net-selftest` runs host + client and diffs their `RESULT` lines, logs in `builds/`).
+- `make clean` — remove local build/import artifacts (`.godot/`, `builds/`, `screenshots/`)
 - `godot --path . --resolution 1280x720 --script tools/screenshot.gd -- [summer|winter] [out_dir]` — renders a few fixed views of the court (the in-game thrower view plus overview/horizon/close-up) to PNGs with the HUD hidden, for checking visual changes without playing. Needs a real display: it opens a window for a few seconds (`--headless` renders nothing).
-- `make test` — run the [GUT](https://gut.readthedocs.io/) test suite (`tests/`) headlessly. GUT is vendored directly at `addons/gut` (copied from the `addons/gut` subfolder of the [Gut repo](https://github.com/bitwes/Gut) tag `v9.7.1`, not a submodule — that repo's top level is itself a demo Godot project, so only its inner `addons/gut` folder is the actual redistributable addon) and enabled as an editor plugin in `project.godot`. After first cloning, or after touching anything under `addons/`, run `godot --headless --path . --import` once so Godot registers GUT's `class_name`s before `make test` will work.
+- `make test` — run the [GUT](https://gut.readthedocs.io/) test suite (`tests/`) headlessly. GUT is vendored directly at `addons/gut` (copied from the `addons/gut` subfolder of the [Gut repo](https://github.com/bitwes/Gut) tag `v9.7.1`, not a submodule — that repo's top level is itself a demo Godot project, so only its inner `addons/gut` folder is the actual redistributable addon) and enabled as an editor plugin in `project.godot`. A fresh clone is imported automatically (see above); after touching anything under `addons/`, run `make import` so Godot re-registers GUT's `class_name`s.
 - There is no dedicated linter configured. [gdtoolkit](https://github.com/Scony/godot-gdscript-toolkit) (`gdformat`, `gdlint`) is the common external option if one is wanted later — it is not installed as part of this repo.
 
 ## Project structure

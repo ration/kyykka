@@ -7,3 +7,6 @@
 
 # OS files
 .DS_Store
+
+# make screenshot output
+/screenshots/

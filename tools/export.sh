@@ -15,4 +15,4 @@ if [ "$#" -ne 2 ]; then
 fi
 
 mkdir -p "$(dirname "$2")"
-godot --headless --path . --export-release "$1" "$2"
+"${GODOT:-godot}" --headless --path . --export-release "$1" "$2"

@@ -40,12 +40,49 @@ This project aims to recreate kyykkä as a digital PC game using the Godot engin
 
 ## Development
 
-Requires [Godot 4.7](https://godotengine.org/download) on your `PATH` as `godot`.
+### Requirements
+
+- [Godot 4.7](https://godotengine.org/download) — the standard build, **not** the .NET/C# one. No other dependencies: the test framework ([GUT](https://gut.readthedocs.io/)) is vendored in `addons/gut`, and all sounds and music are synthesised at runtime.
+- `make` and a POSIX shell (Linux/macOS; on Windows use WSL or Git Bash, or run the `godot` commands below directly).
+- The Makefile calls Godot as `godot`. If your binary is named differently or isn't on your `PATH`, pass it in: `make run GODOT=/path/to/Godot_v4.7-stable_linux.x86_64`.
+
+### First run
+
+```sh
+git clone <repo url> kyykka
+cd kyykka
+make run
+```
+
+On a fresh clone Godot hasn't imported the project yet (the `.godot/` cache is gitignored), and until it has, the game fails with errors like `Identifier "MusicSynth" not declared in the current scope`. Every `make` target that runs the project imports it first if needed, so `make run` just works. Without `make`, import once by hand:
+
+```sh
+godot --headless --path . --import   # once after cloning, or after touching addons/
+godot --path .                       # run the game
+```
+
+If you ever see those "not declared" errors (e.g. after pulling new scripts), run `make import` — or `make clean` to rebuild the cache from scratch.
+
+You can also open the project in the Godot editor (`make edit`, or Import → `project.godot` from the project manager) and press F5.
+
+### Make targets
 
 - `make run` — run the game
 - `make edit` — open the project in the editor
+- `make import` — (re)import assets and register class names
 - `make check` — headless smoke test (loads the project, then quits)
-- `make test` — run the test suite ([GUT](https://gut.readthedocs.io/)); after first cloning, run `godot --headless --path . --import` once first
-- `make export PRESET="<preset name>" OUT=builds/kyykka` — export a build (see `tools/export.sh` for one-time setup of export presets and templates)
+- `make test` — run the GUT test suite headlessly
+- `make simulate [COUNT=16] [MODE=summer|winter|tower]` — headless throw simulator: contact rate, score rate and settle time over many throws, for tuning physics
+- `make screenshot [MODE=summer|winter|tower] [OUT_DIR=screenshots]` — render a few fixed views of the court to PNGs (needs a display; opens a window for a few seconds)
+- `make net-selftest [THROWS=6]` — run an online host and client over localhost and check they agree on every throw (logs in `builds/`)
+- `make export PRESET="<preset name>" OUT=builds/kyykka` — export a build; see below
 - `make clean` — remove local build/import artifacts
 - `make help` — list all targets
+
+### Exporting a build
+
+No export presets are checked in yet. Once: install export templates matching your Godot version (Editor → Manage Export Templates), then create a preset in Project → Export… (this writes `export_presets.cfg`, which is safe to commit). After that, e.g. `make export PRESET="Linux" OUT=builds/kyykka.x86_64`.
+
+### Playing online
+
+Main menu → **Play Online**. One player hosts (UDP port 24480), the other joins with the host's address. The host tries to open the port with UPnP; if that doesn't work (CGNAT, office networks), use a VPN such as Tailscale or ZeroTier and join the host's VPN address.
