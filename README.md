@@ -32,7 +32,8 @@ Kyykkä ("Finnish skittles") is one of Finland's oldest traditional games. Two t
 
 - Each kyykkä knocked out of the square scores a point for the throwing team.
 - Each karttu left unused once the square has been fully cleared also scores a point.
-- Any kyykkä still remaining inside the square (or on its lines) once all karttu have been thrown counts against the throwing team — pieces left inside the square or on its front line cost more than pieces left only on the back or side lines.
+- A kyykkä that lands on one of the square's lines is turned upright on that line.
+- Any kyykkä still remaining once all karttu have been thrown counts against the throwing team: −2 for each one inside the square, −1 for each one standing on a line.
 - A match is played in two halves, with sides swapping ends between halves so both teams attack and defend both squares.
 - The team with the higher total score across both halves wins the match.
 

@@ -7,6 +7,10 @@ extends RefCounted
 var pesa_view: PesaView
 var attack: Attack
 var _zones: Dictionary = {}  # Node -> PieceClassifier.Zone
+var _stood_up: Dictionary = {}  # Node -> where stand_up_on_line() left it
+
+
+const STOOD_UP_TOLERANCE := 0.03  ## metres a stood-up piece can drift and still be on the line
 
 
 func _init(p_pesa_view: PesaView, p_attack: Attack) -> void:
@@ -28,7 +32,13 @@ func _classify(piece: Node3D) -> PieceClassifier.Zone:
 
 
 ## Re-classifies every piece and returns the transitions since the last
-## call (or since construction) as a ThrowResult.
+## call (or since construction) as a ThrowResult. Every piece now ON_LINE
+## is stood upright on the line (PesaView.stand_up_on_line()).
+##
+## A piece stood up sits exactly on the line, right on the classifier's
+## boundary, so it stays ON_LINE until it's actually been moved again
+## (more than STOOD_UP_TOLERANCE) rather than whatever solver jitter makes
+## of it.
 func score_current_state() -> ThrowResult:
 	var removed_from_square := 0
 	var moved_to_line := 0
@@ -40,6 +50,14 @@ func score_current_state() -> ThrowResult:
 			continue
 
 		var current := _classify(piece)
+		if _stood_up.has(piece):
+			if piece.global_position.distance_to(_stood_up[piece]) < STOOD_UP_TOLERANCE:
+				current = PieceClassifier.Zone.ON_LINE
+			else:
+				_stood_up.erase(piece)
+		if current == PieceClassifier.Zone.ON_LINE:
+			pesa_view.stand_up_on_line(piece)
+			_stood_up[piece] = piece.global_position
 		if current == previous:
 			continue
 

@@ -69,6 +69,18 @@ func to_pesa_local(world_pos: Vector3) -> Vector2:
 	return Vector2(local.x, local.z * depth_direction)
 
 
+## Stands `piece` upright on the nearest line of this pesä (PieceClassifier.
+## snap_to_line()), at rest — what players do with a kyykkä that lands on
+## the line.
+func stand_up_on_line(piece: RigidBody3D) -> void:
+	var at := to_pesa_local(piece.global_position)
+	var on_line := PieceClassifier.snap_to_line(at.x, at.y, pesa_half_width, pesa_depth)
+	piece.linear_velocity = Vector3.ZERO
+	piece.angular_velocity = Vector3.ZERO
+	piece.transform = Transform3D(Basis.IDENTITY, Vector3(on_line.x, kyykka_height / 2.0, on_line.y * depth_direction))
+	piece.sleeping = true
+
+
 func _spawn_pieces() -> void:
 	assert(kyykka_scene != null, "PesaView.kyykka_scene must be set")
 	assert(piece_count % 2 == 0, "kyykkä are arranged in stacked pairs")
