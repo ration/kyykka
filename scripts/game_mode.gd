@@ -15,15 +15,38 @@ extends Node
 ## BoxShape3D corners (see the corner-balance note in CLAUDE.md).
 
 enum Mode { SUMMER, WINTER, TOWER }
-
 var current: Mode = Mode.SUMMER
 
 const DEFAULT_TEAM_NAMES: Array[String] = ["Team A", "Team B"]
 const MAX_TEAM_NAME_LENGTH := 20
 ## Team A, team B: the HUD's turn cues and the name dialog's swatches.
 const TEAM_COLORS: Array[Color] = [Color(0.35, 0.62, 1.0), Color(1.0, 0.78, 0.2)]
+## UI scale on phones and tablets: the 1280x720 layout (project.godot's
+## canvas_items stretch) fills a ~6" screen, so buttons and text came out
+## about half their desktop size physically — too small to read or tap.
+const TOUCH_UI_SCALE := 1.6
 
 var team_names: Array[String] = DEFAULT_TEAM_NAMES.duplicate()
+
+
+func _ready() -> void:
+	if TouchControls.is_touch_device():
+		get_tree().root.content_scale_factor = TOUCH_UI_SCALE
+	# Android's Back button arrives as a "go back" request, which by default
+	# quits the app — from anywhere, mid-match included. Make it Esc instead:
+	# back out of a submenu, or open the pause menu.
+	get_tree().quit_on_go_back = false
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		# A press and a release: an action left "pressed" never reads as
+		# just-pressed again, so only the first Back would have worked.
+		for pressed in [true, false]:
+			var back := InputEventAction.new()
+			back.action = "ui_cancel"
+			back.pressed = pressed
+			Input.parse_input_event(back)
 
 
 ## Stores the names typed in for team A and B: trimmed, capped at
