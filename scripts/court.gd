@@ -49,6 +49,7 @@ func _ready() -> void:
 	match_controller.pesa_size = pesa_size
 	match_controller.near_pesa_z = near_pesa_z
 	match_controller.far_pesa_z = far_pesa_z
+	match_controller.court_length = court_length
 	match_controller.pesa_side_margin = pesa_side_margin
 	match_controller.kyykka_scene = preload("res://scenes/kyykka.tscn")
 	match_controller.karttu_scene = preload("res://scenes/karttu.tscn")

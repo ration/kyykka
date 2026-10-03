@@ -31,6 +31,7 @@ signal throw_resolved(result: ThrowResult)
 @export var pesa_size: float
 @export var near_pesa_z: float
 @export var far_pesa_z: float
+@export var court_length: float = 20.0  ## the back lines are at -/+ court_length / 2
 @export var pesa_side_margin: float
 @export var kyykka_scene: PackedScene
 @export var karttu_scene: PackedScene
@@ -115,10 +116,8 @@ func _build_pesa_view(z: float, depth_direction: float) -> PesaView:
 ## so the end changing colour shows whose turn it is.
 func _configure_thrower_for_current_attack() -> void:
 	var team_a := is_team_a_turn()
-	if team_a:
-		thrower.configure(Vector3(0, 0, near_pesa_z), Vector3(0, 0, 1), far_pesa_view)
-	else:
-		thrower.configure(Vector3(0, 0, far_pesa_z), Vector3(0, 0, -1), near_pesa_view)
+	var target := far_pesa_view if team_a else near_pesa_view
+	thrower.configure(throwing_position(), Vector3(0, 0, 1 if team_a else -1), target, target.global_position)
 	far_pesa_view.set_targeted(team_a)
 	near_pesa_view.set_targeted(not team_a)
 	_update_input()
@@ -163,6 +162,16 @@ func _advance_turn() -> void:
 
 	current_attack = current_half.next_attack(current_attack)
 	_configure_thrower_for_current_attack()
+
+
+## Where the current team throws from: the back edge of the court at
+## their own end until they've knocked a kyykkä out, then their own pesä's
+## front line (Attack.throws_from_back_line()).
+func throwing_position() -> Vector3:
+	var team_a := is_team_a_turn()
+	if current_attack.throws_from_back_line():
+		return Vector3(0, 0, -court_length / 2.0 if team_a else court_length / 2.0)
+	return Vector3(0, 0, near_pesa_z if team_a else far_pesa_z)
 
 
 ## Team A attacks the far pesä, team B the near one.

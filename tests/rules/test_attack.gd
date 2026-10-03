@@ -31,3 +31,14 @@ func test_pieces_left_on_line_are_penalized_less_than_in_square() -> void:
 
 	assert_true(attack.is_finished())
 	assert_eq(attack.score(), -4 * Attack.PENALTY_ON_LINE)
+
+
+func test_throws_from_the_back_line_until_a_kyykka_is_out() -> void:
+	var attack := Attack.new(Team.new("A"), Pesa.new(4), 10)
+	assert_true(attack.throws_from_back_line(), "first throw")
+	attack.throw(ThrowResult.new())  # miss
+	assert_true(attack.throws_from_back_line())
+	attack.throw(ThrowResult.new(0, 2, 0))  # only onto the line: still in play
+	assert_true(attack.throws_from_back_line())
+	attack.throw(ThrowResult.new(1, 0, 0))
+	assert_false(attack.throws_from_back_line(), "first kyykkä out: move up to the pesä line")

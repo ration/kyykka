@@ -64,3 +64,10 @@ func test_no_stepping_mid_swing() -> void:
 	thrower._swinging = true
 	thrower.set_line_offset(1.0)
 	assert_eq(thrower.line_offset(), 0.0)
+
+
+func test_target_row_sets_reach_and_starting_pitch() -> void:
+	thrower.configure(Vector3(0, 0, -10), Vector3(0, 0, 1), null, Vector3(0, 0, 5.15))
+	assert_almost_eq(thrower._max_distance, 15.15 + thrower.max_throw_past_target, 0.001)
+	# Looking straight down the starting pitch hits the row.
+	assert_almost_eq(thrower._aim_distance(), 15.15, 0.05)

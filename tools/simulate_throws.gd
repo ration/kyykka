@@ -74,6 +74,7 @@ func _initialize() -> void:
 		if target_piece == null:
 			print("no standing kyykkä left to aim at, stopping")
 			break
+		var from_back: bool = attack.throws_from_back_line()
 		_aim_at(thrower, target_piece.global_position)
 		var start_ms := Time.get_ticks_msec()
 		thrower._throw(gauge)
@@ -112,8 +113,8 @@ func _initialize() -> void:
 					awake_pieces += 1
 			print("  [timeout diag] awake kyykka across both pesas: %d" % awake_pieces)
 
-		print("throw %d/%d: gauge=%3.0f frames=%3d contact=%s (max_disp=%.2fm) scored=%s (in_square %d->%d, on_line %d->%d, removed %d->%d)" % [
-			i + 1, count, gauge, frame_count, contacted, max_displacement, scored,
+		print("throw %d/%d (%s): gauge=%3.0f frames=%3d contact=%s (max_disp=%.2fm) scored=%s (in_square %d->%d, on_line %d->%d, removed %d->%d)" % [
+			i + 1, count, "back line" if from_back else "pesa line", gauge, frame_count, contacted, max_displacement, scored,
 			before_in_square, attack.pesa.in_square,
 			before_on_line, attack.pesa.on_line,
 			before_removed, attack.pesa.removed,

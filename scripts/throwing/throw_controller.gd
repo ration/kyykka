@@ -48,12 +48,13 @@ var suspended: bool = false  ## true while a menu is open without pausing the ga
 
 @export var swing_seconds: float = 1.0  ## time for the gauge to sweep 0 -> 180
 @export var throw_speed: float = 16.0  ## fixed for now; variable power is a later feature
-@export var launch_elevation_degrees: float = -7.5  ## camera pitch reset each turn; looks at the target pesä's kyykkä row from the default camera spot
+@export var launch_elevation_degrees: float = -7.5  ## camera pitch reset each turn when configure() isn't given the target row (otherwise it looks at the row)
 @export var min_elevation_degrees: float = -20.0  ## steepest downward look, i.e. the shortest throw (~3 m out)
 @export var max_elevation_degrees: float = 0.0  ## looking at or above the horizon aims at max_throw_distance
 @export var aim_target_height: float = 0.1  ## height the look ray is cast onto: mid-height of a stacked kyykkä pair
 @export var min_throw_distance: float = 2.0
-@export var max_throw_distance: float = 16.0  ## a little past the far pesä's back line
+@export var max_throw_distance: float = 16.0  ## without a target row; with one, max_throw_past_target past it
+@export var max_throw_past_target: float = 6.0  ## from the row, a little past the target pesä's back line
 
 @export var camera_height: float = 1.6
 @export var camera_back_offset: float = 1.2
@@ -73,6 +74,7 @@ var _fov_degrees: float = 70.0  ## current zoom level; reset to default_fov_degr
 var _forward_direction: Vector3 = Vector3(0, 0, 1)  ## yaw=0 aim direction; set via configure()
 var _line_middle: Vector3  ## where the thrower stands with no sideways step; set via configure()
 var _line_offset: float = 0.0  ## metres to the thrower's right of _line_middle
+var _max_distance: float = 16.0  ## this turn's max_throw_distance; set via configure()
 var _stepping: bool = false  ## right mouse button held
 var _karttu: Karttu
 var _busy: bool = false
@@ -100,10 +102,13 @@ func _ready() -> void:
 
 
 ## Positions this thrower for a turn: where it stands, which way is
-## "straight ahead" (yaw=0), and which PesaView's kyykkä to watch for
-## settling. Called once right after this node enters the tree for the
-## first turn, and again whenever the active side changes.
-func configure(p_position: Vector3, p_forward: Vector3, p_watch_root: Node3D) -> void:
+## "straight ahead" (yaw=0), which PesaView's kyykkä to watch for
+## settling and, if given, where the target kyykkä row is — the camera
+## starts out looking at it and throws can reach a little past the pesä,
+## wherever the thrower stands (the back line or the pesä line). Called
+## once right after this node enters the tree for the first turn, and
+## again every turn.
+func configure(p_position: Vector3, p_forward: Vector3, p_watch_root: Node3D, target_row := Vector3.INF) -> void:
 	position = p_position
 	_line_middle = p_position
 	_line_offset = 0.0
@@ -114,6 +119,14 @@ func configure(p_position: Vector3, p_forward: Vector3, p_watch_root: Node3D) ->
 	_gauge_bar.hide()
 	_yaw_degrees = 0.0
 	_elevation_degrees = launch_elevation_degrees
+	_max_distance = max_throw_distance
+	if target_row != Vector3.INF:
+		var to_row := (target_row - p_position).dot(_forward_direction)
+		_max_distance = to_row + max_throw_past_target
+		_elevation_degrees = clampf(
+			-rad_to_deg(atan((camera_height - aim_target_height) / (to_row + camera_back_offset))),
+			min_elevation_degrees, max_elevation_degrees
+		)
 	_fov_degrees = default_fov_degrees
 	camera.fov = _fov_degrees
 	_reset_karttu()
@@ -284,10 +297,10 @@ func _aim_distance() -> float:
 	var origin := _camera_position()
 	var look := _look_direction()
 	if look.y >= -0.001:
-		return max_throw_distance
+		return _max_distance
 	var hit := origin + look * ((aim_target_height - origin.y) / look.y)
 	var ahead := (hit - global_position).dot(_aim_direction())
-	return clampf(ahead, min_throw_distance, max_throw_distance)
+	return clampf(ahead, min_throw_distance, _max_distance)
 
 
 func _throw(gauge_degrees: float) -> void:

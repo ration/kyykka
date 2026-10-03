@@ -142,6 +142,8 @@ func _refresh() -> void:
 		return
 
 	_turn_label.text = _turn_text()
+	if attack.throws_from_back_line():
+		_turn_label.text += "\nfrom the back line until a kyykkä is out"
 	_turn_label.add_theme_color_override("font_color", _turn_color())
 	_karttu_label.text = "Karttu %d / %d" % [
 		attack.karttu_budget - attack.karttu_used, attack.karttu_budget,

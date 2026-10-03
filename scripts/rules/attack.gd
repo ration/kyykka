@@ -37,6 +37,13 @@ func throw(result: ThrowResult) -> void:
 	karttu_used += 1
 
 
+## Where the next throw is made from: the back edge of the court until
+## the first kyykkä has been knocked out of the pesä, then the attacking
+## team's own pesä line (README.md, "Teams and turns").
+func throws_from_back_line() -> bool:
+	return pesa.removed == 0
+
+
 ## Bonus karttu only count once the pesä is actually cleared — running out
 ## of karttu with kyykkä still standing leaves nothing "unused".
 func unused_karttu() -> int:
