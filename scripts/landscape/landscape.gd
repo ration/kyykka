@@ -163,6 +163,12 @@ func _build_tree_mesh(_variant: int) -> Mesh:
 	return null
 
 
+## Whether a tree may stand at (x, z), beyond the flat-zone clearance
+## (winter keeps them out of the office buildings).
+func _tree_allowed(_x: float, _z: float) -> bool:
+	return true
+
+
 ## Anything else the season adds (winter's snowfall).
 func _add_extras() -> void:
 	pass
@@ -245,7 +251,7 @@ func _build_forest() -> Node3D:
 		if sqrt(dx * dx + dz * dz) < tree_min_clearance:
 			continue
 		# Clumps of forest with open clearings between them, not an even sprinkle.
-		if clumping.get_noise_2d(x, z) < -0.05:
+		if clumping.get_noise_2d(x, z) < -0.05 or not _tree_allowed(x, z):
 			continue
 		var scale := rng.randf_range(0.7, 1.5)
 		var basis := Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(scale, scale * rng.randf_range(0.9, 1.15), scale))

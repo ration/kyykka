@@ -18,6 +18,7 @@ const VIEWS := {
 	"horizon": [Vector3(-2.0, 1.7, 14.0), Vector3(3.0, 3.0, -60.0)],
 	"closeup": [Vector3(1.5, 1.2, -1.5), Vector3(0.0, 0.0, -5.0)],
 	"crowd": [Vector3(1.0, 1.5, 1.5), Vector3(5.5, 1.1, -0.5)],
+	"lot": [Vector3(-14.0, 14.0, 34.0), Vector3(8.0, 0.0, -20.0)],
 }
 
 

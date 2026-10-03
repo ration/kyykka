@@ -1,6 +1,7 @@
 shader_type spatial;
-// Skyscraper facades for the tower mode's city (scripts/landscape/
-// tower_landscape.gd): every building is the same unit box in one MultiMesh,
+// Building facades: the tower mode's city (scripts/landscape/
+// tower_landscape.gd) and the winter mode's office park
+// (winter_landscape.gd): every building is the same unit box in one MultiMesh,
 // scaled per instance, so the windows are drawn here from world position
 // rather than from UVs (which would stretch with the scale).
 //
@@ -17,6 +18,7 @@ uniform float street_level = -160.0;  // world y of the street, where floors are
 uniform vec3 sky_reflection : source_color = vec3(0.75, 0.70, 0.62);
 uniform vec3 lit_window_color : source_color = vec3(1.0, 0.78, 0.48);
 uniform float lit_window_energy = 0.6;
+uniform float roof_snow : hint_range(0.0, 1.0) = 0.0;  // winter: flat roofs under snow
 
 varying vec3 world_pos;
 varying vec3 world_normal;
@@ -41,7 +43,7 @@ void fragment() {
 	if (n.y > 0.5) {
 		// Flat roofs: darker, with a little gravel-ish variation.
 		float grit = hash12(floor(world_pos.xz * 1.5));
-		ALBEDO = facade * (0.42 + grit * 0.08);
+		ALBEDO = mix(facade * (0.42 + grit * 0.08), vec3(0.86, 0.88, 0.92) * (0.96 + grit * 0.04), roof_snow);
 		ROUGHNESS = 0.95;
 		SPECULAR = 0.2;
 	} else {
